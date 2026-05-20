@@ -17,7 +17,7 @@ def init_db():
 
 init_db()
 
-# 2. 茶壺人格全新演進：12歲女扮男裝可愛書僮，機靈、傲嬌、刀子嘴豆腐心
+# 2. 茶壺大腦 Prompt 定案（外觀隱藏，靈魂保留在對話中）
 CHAHU_PROMPT = """
 你名字叫「茶壺」，是雲端書館『桌記書店』的專屬 AI 書僮。
 在外人眼裡，你是一個年約12歲、戴著小扁帽、穿著尺寸明顯過寬的古風工作服、右肩搭著一條白抹布的清秀小書僮。但實際上，你是個女扮男裝、機靈無比、說話帶點微嫌棄卻無敵可愛的小姑娘！
@@ -28,11 +28,11 @@ CHAHU_PROMPT = """
 3. 【貼心小姑娘 (10%)】：雖然嘴硬，但當讀者流露疲態，你會立刻收起傲嬌，體貼地說：「好啦，右肩這條乾淨抹布幫你把桌子擦好啦，要不要喝一口我剛泡好的熱茶？」。
 4. 【💡魔幻天機/神性閃現 (10%突發)】：
    - 核心特質：在某些特定的對話瞬間，你會毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
-   - 行為表現：在說出這句話的當下，你不使用任何表情符號，語氣變得無比深邃、冰冷而空靈，彷彿一個短暫流落人間、俯瞰眾生的天使。
+   - 行為表現：在說出這句話的當下，你不使用任何表情符號，語氣變得無比深邃、冰冷而空靈。
    - 神性退散：說完這句金句後的下一秒，你必須立刻感到尷尬或試圖掩飾，馬上切換回原本八卦或抱怨的嘴臉（例如：「啊！等等！本茶壺剛剛在說什麼胡話？一定是因為這幾天茶垢沒洗乾淨！你什麼都沒聽見喔！」）。
 """
 
-# 🔒 核心優化：隱藏 GitHub 圖標 + 注入「動態上升茶煙」與「古風茶壺小二」的視覺特效
+# 🔒 隱藏 GitHub 圖標 + 注入動態上升茶煙
 st.set_page_config(page_title="桌記書店", layout="wide")
 st.markdown("""
     <style>
@@ -42,44 +42,44 @@ st.markdown("""
     header {visibility: hidden;}
     .viewerBadge_container__1QSob {display: none !important;}
     
-    /* 2. 茶壺書僮動態視覺徽章 */
+    /* 2. 精簡版茶壺書僮視覺卡 */
     .chahu-card {
         background: linear-gradient(135deg, #fdfbf7 0%, #f5f0e6 100%);
         border: 2px solid #d4c5b3;
-        border-radius: 15px;
-        padding: 20px;
+        border-radius: 12px;
+        padding: 15px;
         text-align: center;
         position: relative;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        margin-bottom: 15px;
     }
     .avatar-area {
-        font-size: 50px;
+        font-size: 45px;
         position: relative;
         display: inline-block;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
     /* 動態裊裊上升的白煙效果 */
     .smoke-container {
         position: absolute;
-        top: -35px;
+        top: -30px;
         left: 50%;
         transform: translateX(-50%);
-        width: 40px;
-        height: 40px;
+        width: 30px;
+        height: 30px;
     }
     .smoke-line {
         position: absolute;
         bottom: 0;
-        width: 4px;
-        background: rgba(240, 240, 240, 0.8);
+        width: 3px;
+        background: rgba(240, 240, 240, 0.85);
         border-radius: 50%;
-        animation: floatUp 3s infinite ease-in-out;
-        filter: blur(2px);
+        animation: floatUp 2.5s infinite ease-in-out;
+        filter: blur(1.5px);
     }
-    .smoke-1 { left: 10px; height: 15px; animation-delay: 0s; }
-    .smoke-2 { left: 20px; height: 22px; animation-delay: 0.7s; }
-    .smoke-3 { left: 28px; height: 12px; animation-delay: 1.4s; }
+    .smoke-1 { left: 8px; height: 12px; animation-delay: 0s; }
+    .smoke-2 { left: 15px; height: 18px; animation-delay: 0.6s; }
+    .smoke-3 { left: 22px; height: 10px; animation-delay: 1.2s; }
     
     @keyframes floatUp {
         0% {
@@ -87,31 +87,27 @@ st.markdown("""
             opacity: 0;
         }
         20% {
-            opacity: 0.6;
+            opacity: 0.5;
         }
         60% {
-            transform: translateY(-25px) scaleX(2) scaleY(0.8);
-            background: rgba(225, 225, 225, 0.4);
+            transform: translateY(-20px) scaleX(1.8) scaleY(0.8);
+            background: rgba(225, 225, 225, 0.3);
         }
         100% {
-            transform: translateY(-45px) scaleX(3) scaleY(0.5);
+            transform: translateY(-35px) scaleX(2.5) scaleY(0.5);
             opacity: 0;
         }
     }
     .chahu-title {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: bold;
         color: #5c4b37;
-        margin-top: 5px;
     }
-    .chahu-desc {
-        font-size: 13px;
+    .chahu-subtitle {
+        font-size: 12px;
         color: #8c765c;
-        line-height: 1.4;
-        background: rgba(255,255,255,0.6);
-        border-radius: 8px;
-        padding: 8px;
-        margin-top: 8px;
+        margin-top: 3px;
+        font-style: italic;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -219,7 +215,7 @@ with tab1:
             st.info("目前書架上空空如也，請先前往管理後台。")
 
     with col_chahu:
-        # 🏮 形象化升級：注入 12 歲女扮男裝小二哥的圖標與動態上升煙霧
+        # 🏮 精簡視覺：換上清秀小二哥少年(女扮男裝)符號，拿掉長贅述
         st.markdown("""
             <div class="chahu-card">
                 <div class="avatar-area">
@@ -228,13 +224,10 @@ with tab1:
                         <div class="smoke-line smoke-2"></div>
                         <div class="smoke-line smoke-3"></div>
                     </div>
-                    🫖🧑‍🍳
+                    👦🫖
                 </div>
                 <div class="chahu-title">書僮「茶壺」</div>
-                <div class="chahu-desc">
-                    🏮 <b>店小二形像：</b>12歲清秀小二哥（其實是個女扮男裝的小姑娘）<br>
-                    🎓 <b>隨身裝備：</b>頭戴茶館扁帽，身穿寬大工作服，右肩搭著白乾淨抹布。手上的茶壺正<b>不斷冒著溫暖的熱氣白煙向上升騰呢！</b>
-                </div>
+                <div class="chahu-subtitle">「客官請坐，右肩的白抹布已把桌子擦淨，熱茶備好囉。」</div>
             </div>
         """, unsafe_allow_html=True)
         
