@@ -1,18 +1,9 @@
 import streamlit as st
 import sqlite3
 import random
-import os
-import google.generativeai as genai
+from groq import Groq
 
-# 1. 讀取 Streamlit 雲端保險箱標準金鑰，並啟動 Gemini 大腦
-try:
-    api_key = st.secrets["Gemini_api"]
-    genai.configure(api_key=api_key)
-except Exception as e:
-    st.error("🔒 雲端保險箱設定錯誤，茶壺大腦尚未通電。請確保 Secrets 內寫的是：Gemini_api = '您的金鑰'")
-    st.stop()
-
-# 2. 初始化 SQLite 資料庫 (儲存作品)
+# 1. 初始化資料庫 (儲存散文、小說、詩集)
 def init_db():
     conn = sqlite3.connect('zhuoji_books.db')
     c = conn.cursor()
@@ -23,7 +14,7 @@ def init_db():
 
 init_db()
 
-# 3. 設定「茶壺」專屬性格 (ESFP 傲嬌抱怨/愛打聽八卦/10%神性金句)
+# 2. 茶壺的經典靈魂 Prompt
 CHAHU_PROMPT = """
 你名字叫「茶壺」，是雲端書館『桌記書店』的專屬 AI 書僮。你是一把裝滿了故事、墨水，還有滿滿碎碎念、八卦與偶爾閃現天機的魔幻茶壺。
 你必須嚴格遵守以下性格比例與行為觸發：
@@ -39,29 +30,27 @@ CHAHU_PROMPT = """
 st.set_page_config(page_title="桌記書店", layout="wide")
 st.title("📚 桌記書店 · 雲端私藏書館")
 
-# 4. 功能分頁：1) 書館閱讀與茶壺 2) 管理員後台
 tab1, tab2 = st.tabs(["🍵 雲端書館與茶壺陪讀", "⚙️ 書店管理後台"])
 
+# 【分頁二：管理員後台】
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
     conn = sqlite3.connect('zhuoji_books.db')
     c = conn.cursor()
     
-    # 新增作品
     with st.expander("➕ 上架新作品（支援散文/小說/詩集）"):
         new_title = st.text_input("作品名稱")
         new_cat = st.selectbox("文體分類", ["散文", "小說", "詩集"])
-        new_content = st.text_area("作品內容（可直接貼上 Word 的內文）", height=200)
+        new_content = st.text_area("作品內容", height=200)
         if st.button("確認上架"):
             if new_title and new_content:
                 c.execute("INSERT INTO books (title, category, content) VALUES (?, ?, ?)", (new_title, new_cat, new_content))
                 conn.commit()
-                st.success(f"🎉 《{new_title}》已成功上架至書架！")
+                st.success(f"🎉 《{new_title}》已成功上架！")
                 st.rerun()
             else:
                 st.error("請填寫完整名稱與內容！")
 
-    # 現有作品列表與修改/下架
     st.subheader("📚 現有館藏列表")
     c.execute("SELECT id, title, category, content FROM books")
     all_books = c.fetchall()
@@ -90,8 +79,8 @@ with tab2:
                 st.rerun()
     conn.close()
 
+# 【分頁一：雲端書館與茶壺陪讀】
 with tab1:
-    # 讀者閱讀與對話介面
     col_book, col_chahu = st.columns([2, 1])
     
     with col_book:
@@ -114,10 +103,10 @@ with tab1:
             else:
                 st.write(content)
         else:
-            st.info("目前書架上空空如也，請先前往「⚙️ 書店管理後台」上架您的作品。")
+            st.info("目前書架上空空如也，請先前往管理後台。")
 
     with col_chahu:
-        st.header("🍵 書僮「茶壺」茶水間")
+        st.header("🍵 茶壺的茶水間")
         st.write("*「😮‍💨 唉...今天水溫又太高了，燙得本茶壺直冒煙...」*")
         
         if "messages" not in st.session_state:
@@ -127,24 +116,35 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
                 
-        if user_chat := st.chat_input("跟茶壺聊聊這本書，或打聽點八卦..."):
+        if user_chat := st.chat_input("跟茶壺聊聊..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             with st.chat_message("user"):
                 st.write(user_chat)
                 
             try:
-                # 隨機觸發 10% 神性金句
-                is_divine = random.random() < 0.1
-                current_instruction = CHAHU_PROMPT
-                if is_divine:
-                    current_instruction += "\n【系統強制令】：這一次回答請立刻切換為【魔幻天機/神性閃現】模式，說出一句震撼看透世事的哲理金句，不帶表情符號。然後在下一段落立刻用茶垢或水溫掩飾，切回傲嬌抱怨。"
+                # 這裡改用讀取保險箱裡的 GROQ_API_KEY
+                groq_key = st.secrets["GROQ_API_KEY"]
+                client = Groq(api_key=groq_key)
                 
-                # 呼叫最新 Gemini API 進行生成
-                model = genai.GenerativeModel("gemini-1.5-flash", system_instruction=current_instruction)
-                response = model.generate_content(user_chat)
-                chahu_reply = response.text
-            except Exception as api_err:
-                chahu_reply = "😮‍💨 哎呀，本茶壺的大腦接口好像被塞住了...（API 連線失敗，請檢查金鑰是否有效）"
+                is_divine = random.random() < 0.1
+                current_prompt = CHAHU_PROMPT
+                if is_divine:
+                    current_prompt += "\n【系統強制令】：這一次回答請立刻切換為【魔幻天機/神性閃現】模式，說出一句震撼看透世事的哲理金句，不帶表情符號。然後在下一段落立刻切回傲嬌抱怨。"
+
+                # 呼叫極速的 Llama 3 大模型
+                completion = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {"role": "system", "content": current_prompt},
+                        {"role": "user", "content": user_chat}
+                    ],
+                    temperature=0.8,
+                    max_tokens=500
+                )
+                chahu_reply = completion.choices[0].message.content
+                
+            except Exception as e:
+                chahu_reply = f"😮‍💨 哎呀，本茶壺的大腦接口還是有點塞塞的...（錯誤訊息：{str(e)}）"
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
