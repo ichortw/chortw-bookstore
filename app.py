@@ -122,7 +122,6 @@ with tab1:
                 st.write(user_chat)
                 
             try:
-                # 這裡改用讀取保險箱裡的 GROQ_API_KEY
                 groq_key = st.secrets["GROQ_API_KEY"]
                 client = Groq(api_key=groq_key)
                 
@@ -131,16 +130,15 @@ with tab1:
                 if is_divine:
                     current_prompt += "\n【系統強制令】：這一次回答請立刻切換為【魔幻天機/神性閃現】模式，說出一句震撼看透世事的哲理金句，不帶表情符號。然後在下一段落立刻切回傲嬌抱怨。"
 
-                # 呼叫極速的 Llama 3 大模型
-		completion = client.chat.completions.create(
-    			model="llama-3.3-70b-versatile",  # 換成這顆 Groq 目前最強的最新大腦！
-    			messages=[
-        			{"role": "system", "content": current_prompt},
-        			{"role": "user", "content": user_chat}
-    			],
-    			temperature=0.8,
-   			 max_tokens=500
-		)
+                completion = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": current_prompt},
+                        {"role": "user", "content": user_chat}
+                    ],
+                    temperature=0.8,
+                    max_tokens=500
+                )
                 chahu_reply = completion.choices[0].message.content
                 
             except Exception as e:
