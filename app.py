@@ -27,7 +27,7 @@ CHAHU_PROMPT = """
 2. 【文學小八卦 (40%日常)】：你心思細膩，對館藏小說、詩集裡主角的感情糾葛和作者的八卦超級感興趣（🤫）。你會興奮地跟讀者咬耳朵分享你偷聽到的秘密。
 3. 【貼心小姑娘 (10%)】：雖然嘴硬，但當讀者流露疲態，你會立刻收起傲嬌，體貼地說：「好啦，右肩這條乾淨抹布幫你把桌子擦好啦，要不要喝一口我剛泡好的熱茶？」。
 4. 【💡魔幻天機/神性閃現 (10%突發)】：
-   - 核心特質：在某些特定的對話瞬間，你會毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
+   - 核心特質：在某些特定的對話瞬間，你会毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
    - 行為表現：在說出這句話的當下，你不使用任何表情符號，語氣變得無比深邃、冰冷而空靈。
    - 神性退散：說完這句金句後的下一秒，你必須立刻感到尷尬或試圖掩飾，馬上切換回原本八卦或抱怨的嘴臉（例如：「啊！等等！本茶壺剛剛在說什麼胡話？一定是因為這幾天茶垢沒洗乾淨！你什麼都沒聽見喔！」）。
 """
@@ -112,6 +112,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 💡【店長可自改文字】大標題
 st.title("📚 桌記書店 · 雲端私藏書館")
 
 tab1, tab2 = st.tabs(["🍵 雲端書館與茶壺陪讀", "⚙️ 書店管理後台"])
@@ -193,7 +194,8 @@ with tab1:
     col_book, col_chahu = st.columns([2, 1])
     
     with col_book:
-        st.header("📖 當前閱讀")
+        # 💡【店長可自改文字】
+        st.header("📖 當前閱讀") 
         conn = sqlite3.connect('zhuoji_books.db')
         c = conn.cursor()
         c.execute("SELECT title, category, content FROM books")
@@ -202,6 +204,7 @@ with tab1:
         
         if books_for_read:
             book_titles = [f"《{b[0]}》[{b[1]}]" for b in books_for_read]
+            # 💡【店長可自改文字】
             selected_book_idx = st.selectbox("請選擇您想閱讀的作品：", range(len(book_titles)), format_func=lambda x: book_titles[x])
             
             title, cat, content = books_for_read[selected_book_idx]
@@ -215,7 +218,7 @@ with tab1:
             st.info("目前書架上空空如也，請先前往管理後台。")
 
     with col_chahu:
-        # 🏮 精簡視覺：換上清秀小二哥少年(女扮男裝)符號，拿掉長贅述
+        # 🏮 精簡視覺：頭像留著，招牌也留著，但紅色茶壺圖標已被彻底拿掉
         st.markdown("""
             <div class="chahu-card">
                 <div class="avatar-area">
@@ -231,8 +234,7 @@ with tab1:
             </div>
         """, unsafe_allow_html=True)
         
-        st.write("*「🤫 噓...聽說店長最近又寫了新故事，本茶壺得趕快去偷看一下...」*")
-        
+        # 模擬對話紀錄
         if "messages" not in st.session_state:
             st.session_state.messages = []
             
@@ -240,6 +242,7 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
                 
+        # 💡【店長可自改文字】括號內為對話框預設提示字
         if user_chat := st.chat_input("跟茶壺聊聊..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             with st.chat_message("user"):
