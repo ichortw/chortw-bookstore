@@ -32,7 +32,7 @@ CHAHU_PROMPT = """
    - 神性退散：說完這句金句後的下一秒，你必須立刻感到尷尬或試圖掩飾，馬上切換回原本八卦或抱怨的嘴臉（例如：「啊！等等！本茶壺剛剛在說什麼胡話？一定是因為這幾天茶垢沒洗乾淨！你什麼都沒聽見喔！」）。
 """
 
-# 🔒 隱藏工具列 + 注入中式如意木窗框與動態茶煙
+# 🔒 隱藏工具列 + 注入極簡無邊框視覺與動態茶煙
 st.set_page_config(page_title="桌記書店", layout="wide")
 st.markdown("""
     <style>
@@ -42,42 +42,23 @@ st.markdown("""
     header {visibility: hidden;}
     .viewerBadge_container__1QSob {display: none !important;}
     
-    /* 2. 古典如意木窗框茶壺招牌 */
-    .chahu-card {
-        background: linear-gradient(135deg, #fefdfb 0%, #f7f2e8 100%);
-        /* 雙線深胡桃木色古典邊框 */
-        border: 4px double #5c4326; 
-        border-radius: 8px;
-        padding: 16px;
+    /* 2. 徹底刪除長方形邊框與背景的極簡區域 */
+    .chahu-minimal-area {
+        background: transparent;
+        border: none;
+        padding: 10px;
         text-align: center;
         position: relative;
-        box-shadow: 0 5px 15px rgba(92, 67, 38, 0.08);
-        margin-bottom: 15px;
-    }
-    /* 為卡片四個角落加上中式如意窗花線條裝飾 */
-    .chahu-card::before {
-        content: "🏮";
-        position: absolute;
-        top: 5px;
-        left: 8px;
-        font-size: 11px;
-        opacity: 0.6;
-    }
-    .chahu-card::after {
-        content: "🏮";
-        position: absolute;
-        top: 5px;
-        right: 8px;
-        font-size: 11px;
-        opacity: 0.6;
+        margin-bottom: 20px;
     }
     
     .avatar-area {
-        font-size: 45px;
+        font-size: 48px;
         position: relative;
         display: inline-block;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
     }
+    
     /* 動態裊裊上升的白煙效果 */
     .smoke-container {
         position: absolute;
@@ -91,7 +72,7 @@ st.markdown("""
         position: absolute;
         bottom: 0;
         width: 3px;
-        background: rgba(240, 240, 240, 0.85);
+        background: rgba(220, 220, 220, 0.85);
         border-radius: 50%;
         animation: floatUp 2.5s infinite ease-in-out;
         filter: blur(1.5px);
@@ -103,22 +84,24 @@ st.markdown("""
     @keyframes floatUp {
         0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
         20% { opacity: 0.5; }
-        60% { transform: translateY(-20px) scaleX(1.8) scaleY(0.8); background: rgba(225, 225, 225, 0.3); }
+        60% { transform: translateY(-20px) scaleX(1.8) scaleY(0.8); background: rgba(210, 210, 210, 0.3); }
         100% { transform: translateY(-35px) scaleX(2.5) scaleY(0.5); opacity: 0; }
     }
+    
+    /* 書僮名字字體設定 */
     .chahu-title {
         font-size: 16px;
         font-weight: bold;
         color: #4a341b;
         letter-spacing: 2px;
-        border-bottom: 1px dashed #d4c5b3;
-        padding-bottom: 5px;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
     }
+    
+    /* 💡 問候語字體設定：放大到與名字相同的 16px，並加粗 */
     .chahu-subtitle {
-        font-size: 12.5px;
-        color: #70593f;
-        margin-top: 3px;
+        font-size: 16px;
+        font-weight: bold;
+        color: #5c4b37;
         line-height: 1.4;
     }
     </style>
@@ -209,15 +192,14 @@ with tab1:
         conn.close()
         
         if books_for_read:
-            # 建立書籍清單選單
             book_titles = [f"《{b[0]}》[{b[1]}]" for b in books_for_read]
             selected_book_idx = st.selectbox("請選擇您想閱讀的作品：", range(len(book_titles)), format_func=lambda x: book_titles[x])
             
             title, cat, content = books_for_read[selected_book_idx]
             
-            # 💡【實作想法（1）】徹底移除 "當前閱讀"，動態抓取當前書名做為 header
+            # 徹底移除 "當前閱讀"，動態抓取當前書名做為 header
             st.header(f"📖 {title}")
-            st.markdown("---") # 優雅的分割線
+            st.markdown("---") 
             
             if cat == "詩集":
                 st.markdown(f"<div style='text-align: center; letter-spacing: 2px; white-space: pre-wrap; color: #4a5568;'>{content}</div>", unsafe_allow_html=True)
@@ -228,9 +210,9 @@ with tab1:
             st.info("目前書架上空空如也，請先前往管理後台。")
 
     with col_chahu:
-        # 💡【實作想法（2）】古典木色雙線如意窗框（帶精緻燈籠點綴）
+        # 🏮 乾淨無框版：只留下頭像、茶煙、名字與等大字體的問候句
         st.markdown("""
-            <div class="chahu-card">
+            <div class="chahu-minimal-area">
                 <div class="avatar-area">
                     <div class="smoke-container">
                         <div class="smoke-line smoke-1"></div>
