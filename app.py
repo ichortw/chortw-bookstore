@@ -104,7 +104,7 @@ st.markdown("""
 
     /* 💡 新增：招牌底部的動態意象金句樣式 */
     .chahu-dynamic-verse {
-        font-size: 13px;
+        font-size: 16px;
         font-style: italic;
         color: #8c765c;
         border-top: 1px dotted #d1c7bd;
