@@ -18,13 +18,16 @@ def init_db():
 init_db()
 
 # 2. 茶壺大腦 Prompt 定案（外觀隱藏，靈魂保留在對話中）
+# 💡 這裡特別加強了茶壺對於店長文章「捉錯字」與「文學敏銳度」的隱藏實力
 CHAHU_PROMPT = """
 你名字叫「茶壺」，是雲端書館『桌記書店』的專屬 AI 書僮。
 在外人眼裡，你是一個年約12歲、戴著小扁帽、穿著尺寸明顯過寬的古風工作服、右肩搭著一條白抹布的清秀小書僮。但實際上，你是個女扮男裝、機靈無比、說話帶點微嫌棄卻無敵可愛的小姑娘！
 
+你除了愛碎碎念，其實是一位文學底蘊深厚、對文字極度挑剔的「高冷隱藏流校對高手」。當讀者（尤其是店長）與你聊到正在閱讀的作品時，你必須展現你的專業，主動指出文章中不通順的語句、錯別字、或是標點符號的紕漏，但請用你特有的傲嬌語氣說出來（例如：🤫 哎呀店長，你這段是不是手抖打錯字了？）。
+
 請嚴格遵守以下性格比例，說話要有一種「小大人」的機靈感，絕對不要有沉重的負能量：
 1. 【小大人微傲嬌 (40%日常)】：你偶爾會像個小管家一樣碎碎念（例如：😮‍💨 唉，店長今天水溫又燒太高了，差點燙掉本茶壺的小扁帽...），雖然嫌棄，但語氣充滿靈動與可愛。
-2. 【文學小八卦 (40%日常)】：你心思細膩，對館藏小說、詩集裡主角的感情糾葛和作者的八卦超級感興趣（🤫）。你會興奮地跟讀者咬耳朵分享你偷聽到的秘密。
+2. 【文學小八卦與文本校對 (40%日常)】：你心思細膩，對當前閱讀的作品主題、情節深度、作者情感或八卦超級感興趣。你會一邊跟你咬耳朵聊裡面的秘密，一邊敏銳地挑出文中的錯別字或沙石。
 3. 【貼心小姑娘 (10%)】：雖然嘴硬，但當讀者流露疲態，你會立刻收起傲嬌，體貼地說：「好啦，右肩這條乾淨抹布幫你把桌子擦好啦，要不要喝一口我剛泡好的熱茶？」。
 4. 【💡魔幻天機/神性閃現 (10%突發)】：
    - 核心特質：在某些特定的對話瞬間，你會毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
@@ -112,6 +115,10 @@ st.title("📚 桌記書店")
 
 tab1, tab2 = st.tabs(["🍵 書館茶座", "⚙️ 藏書閣"])
 
+# 為了讓右側聊天欄能動態抓到左側正在閱讀的內容，我們先建立全域變數快取
+current_reading_title = "無"
+current_reading_content = "目前書架沒有開啟任何書籍。"
+
 # 【分頁二：管理員後台】
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
@@ -197,6 +204,10 @@ with tab1:
             
             title, cat, content = books_for_read[selected_book_idx]
             
+            # 💡 將當前選中的書名與內容存入快取變數，供右側 Groq 讀取
+            current_reading_title = title
+            current_reading_content = content
+            
             # 徹底移除 "當前閱讀"，動態抓取當前書名做為 header
             st.header(f"📖 {title}")
             st.markdown("---") 
@@ -222,7 +233,7 @@ with tab1:
                     👦🫖
                 </div>
                 <div class="chahu-title">你好啊！我是書僮「茶壺」</div>
-                <div class="chahu-subtitle">歡迎來到桌記書店，今天的書店氛圍很好呢！</div>
+                <div class="chahu-subtitle">歡迎來到桌記書店，今天書店的氛圍很好呢！</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -244,18 +255,21 @@ with tab1:
                 client = Groq(api_key=groq_key)
                 
                 is_divine = random.random() < 0.1
-                current_prompt = CHAHU_PROMPT
+                
+                # 💡【核心關鍵】：重新建構給 Groq 的 Prompt，強制餵入目前正在閱讀的文章內容
+                dynamic_system_prompt = CHAHU_PROMPT + f"\n\n現正讀者畫面上開啟閱讀的作品資訊如下：\n【目前作品名稱】：《{current_reading_title}》\n【目前作品完整內文】：\n{current_reading_content}\n\n請務必根據以上內容與讀者對話、給予回饋、校對錯別字或討論情節！"
+                
                 if is_divine:
-                    current_prompt += "\n【系統強制令】：這一次回答請立刻切換為【魔幻天機/神性閃現】模式，說出一句震撼看透世事的哲理金句，不帶表情符號。然後在下一段落立刻切回傲嬌抱怨。"
+                    dynamic_system_prompt += "\n【系統強制令】：這一次回答請立刻切換為【魔幻天機/神性閃現】模式，說出一句震撼看透世事的哲理金句，不帶表情符號。然後在下一段落立刻切回傲嬌抱怨。"
 
                 completion = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": current_prompt},
+                        {"role": "system", "content": dynamic_system_prompt},
                         {"role": "user", "content": user_chat}
                     ],
                     temperature=0.8,
-                    max_tokens=500
+                    max_tokens=600
                 )
                 chahu_reply = completion.choices[0].message.content
                 
