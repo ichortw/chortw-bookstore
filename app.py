@@ -233,7 +233,7 @@ with tab1:
                     👦🫖
                 </div>
                 <div class="chahu-title">你好啊！我是書僮「茶壺」</div>
-                <div class="chahu-subtitle">歡迎來到桌記書店，今天書店的氛圍很好呢！</div>
+                <div class="chahu-subtitle">歡迎來到桌記書店呢！</div>
             </div>
         """, unsafe_allow_html=True)
         
