@@ -27,32 +27,51 @@ CHAHU_PROMPT = """
 2. 【文學小八卦 (40%日常)】：你心思細膩，對館藏小說、詩集裡主角的感情糾葛和作者的八卦超級感興趣（🤫）。你會興奮地跟讀者咬耳朵分享你偷聽到的秘密。
 3. 【貼心小姑娘 (10%)】：雖然嘴硬，但當讀者流露疲態，你會立刻收起傲嬌，體貼地說：「好啦，右肩這條乾淨抹布幫你把桌子擦好啦，要不要喝一口我剛泡好的熱茶？」。
 4. 【💡魔幻天機/神性閃現 (10%突發)】：
-   - 核心特質：在某些特定的對話瞬間，你会毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
+   - 核心特質：在某些特定的對話瞬間，你會毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
    - 行為表現：在說出這句話的當下，你不使用任何表情符號，語氣變得無比深邃、冰冷而空靈。
    - 神性退散：說完這句金句後的下一秒，你必須立刻感到尷尬或試圖掩飾，馬上切換回原本八卦或抱怨的嘴臉（例如：「啊！等等！本茶壺剛剛在說什麼胡話？一定是因為這幾天茶垢沒洗乾淨！你什麼都沒聽見喔！」）。
 """
 
-# 🔒 隱藏 GitHub 圖標 + 注入動態上升茶煙
+# 🔒 隱藏工具列 + 注入中式如意木窗框與動態茶煙
 st.set_page_config(page_title="桌記書店", layout="wide")
 st.markdown("""
     <style>
-    /* 1. 隱藏右上角 GitHub 相關選單與頂部工具列 */
+    /* 1. 隱藏右上角選單與頂部工具列 */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .viewerBadge_container__1QSob {display: none !important;}
     
-    /* 2. 精簡版茶壺書僮視覺卡 */
+    /* 2. 古典如意木窗框茶壺招牌 */
     .chahu-card {
-        background: linear-gradient(135deg, #fdfbf7 0%, #f5f0e6 100%);
-        border: 2px solid #d4c5b3;
-        border-radius: 12px;
-        padding: 15px;
+        background: linear-gradient(135deg, #fefdfb 0%, #f7f2e8 100%);
+        /* 雙線深胡桃木色古典邊框 */
+        border: 4px double #5c4326; 
+        border-radius: 8px;
+        padding: 16px;
         text-align: center;
         position: relative;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        box-shadow: 0 5px 15px rgba(92, 67, 38, 0.08);
         margin-bottom: 15px;
     }
+    /* 為卡片四個角落加上中式如意窗花線條裝飾 */
+    .chahu-card::before {
+        content: "🏮";
+        position: absolute;
+        top: 5px;
+        left: 8px;
+        font-size: 11px;
+        opacity: 0.6;
+    }
+    .chahu-card::after {
+        content: "🏮";
+        position: absolute;
+        top: 5px;
+        right: 8px;
+        font-size: 11px;
+        opacity: 0.6;
+    }
+    
     .avatar-area {
         font-size: 45px;
         position: relative;
@@ -82,51 +101,42 @@ st.markdown("""
     .smoke-3 { left: 22px; height: 10px; animation-delay: 1.2s; }
     
     @keyframes floatUp {
-        0% {
-            transform: translateY(0) scaleX(1) scaleY(1);
-            opacity: 0;
-        }
-        20% {
-            opacity: 0.5;
-        }
-        60% {
-            transform: translateY(-20px) scaleX(1.8) scaleY(0.8);
-            background: rgba(225, 225, 225, 0.3);
-        }
-        100% {
-            transform: translateY(-35px) scaleX(2.5) scaleY(0.5);
-            opacity: 0;
-        }
+        0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
+        20% { opacity: 0.5; }
+        60% { transform: translateY(-20px) scaleX(1.8) scaleY(0.8); background: rgba(225, 225, 225, 0.3); }
+        100% { transform: translateY(-35px) scaleX(2.5) scaleY(0.5); opacity: 0; }
     }
     .chahu-title {
         font-size: 16px;
         font-weight: bold;
-        color: #5c4b37;
+        color: #4a341b;
+        letter-spacing: 2px;
+        border-bottom: 1px dashed #d4c5b3;
+        padding-bottom: 5px;
+        margin-bottom: 5px;
     }
     .chahu-subtitle {
-        font-size: 12px;
-        color: #8c765c;
+        font-size: 12.5px;
+        color: #70593f;
         margin-top: 3px;
-        font-style: italic;
+        line-height: 1.4;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 💡【店長可自改文字】大標題
-st.title("📚 桌記書店 · 雲端私藏書館")
+# 大標題
+st.title("📚 桌記書店")
 
-tab1, tab2 = st.tabs(["🍵 雲端書館與茶壺陪讀", "⚙️ 書店管理後台"])
+tab1, tab2 = st.tabs(["🍵 書館茶座", "⚙️ 藏書閣"])
 
 # 【分頁二：管理員後台】
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
-    
     admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！歡迎回店。")
         
-        # 店長私房備忘錄 (Post Tip)
         st.subheader("📌 店長私房備忘錄 (Post Tip)")
         conn = sqlite3.connect('zhuoji_books.db')
         c = conn.cursor()
@@ -143,7 +153,6 @@ with tab2:
             
         st.markdown("---")
         
-        # 上架新作品
         with st.expander("➕ 上架新作品（支援散文/小說/詩集）"):
             new_title = st.text_input("作品名稱")
             new_cat = st.selectbox("文體分類", ["散文", "小說", "詩集"])
@@ -157,7 +166,6 @@ with tab2:
                 else:
                     st.error("請填寫完整名稱與內容！")
 
-        # 現有館藏列表
         st.subheader("📚 現有館藏列表")
         c.execute("SELECT id, title, category, content FROM books")
         all_books = c.fetchall()
@@ -194,8 +202,6 @@ with tab1:
     col_book, col_chahu = st.columns([2, 1])
     
     with col_book:
-        # 💡【店長可自改文字】
-        st.header("📖 當前閱讀") 
         conn = sqlite3.connect('zhuoji_books.db')
         c = conn.cursor()
         c.execute("SELECT title, category, content FROM books")
@@ -203,22 +209,26 @@ with tab1:
         conn.close()
         
         if books_for_read:
+            # 建立書籍清單選單
             book_titles = [f"《{b[0]}》[{b[1]}]" for b in books_for_read]
-            # 💡【店長可自改文字】
             selected_book_idx = st.selectbox("請選擇您想閱讀的作品：", range(len(book_titles)), format_func=lambda x: book_titles[x])
             
             title, cat, content = books_for_read[selected_book_idx]
-            st.subheader(title)
+            
+            # 💡【實作想法（1）】徹底移除 "當前閱讀"，動態抓取當前書名做為 header
+            st.header(f"📖 {title}")
+            st.markdown("---") # 優雅的分割線
             
             if cat == "詩集":
                 st.markdown(f"<div style='text-align: center; letter-spacing: 2px; white-space: pre-wrap; color: #4a5568;'>{content}</div>", unsafe_allow_html=True)
             else:
                 st.write(content)
         else:
+            st.header("📖 尚無作品")
             st.info("目前書架上空空如也，請先前往管理後台。")
 
     with col_chahu:
-        # 🏮 精簡視覺：頭像留著，招牌也留著，但紅色茶壺圖標已被彻底拿掉
+        # 💡【實作想法（2）】古典木色雙線如意窗框（帶精緻燈籠點綴）
         st.markdown("""
             <div class="chahu-card">
                 <div class="avatar-area">
@@ -229,8 +239,8 @@ with tab1:
                     </div>
                     👦🫖
                 </div>
-                <div class="chahu-title">書僮「茶壺」</div>
-                <div class="chahu-subtitle">「客官請坐，右肩的白抹布已把桌子擦淨，熱茶備好囉。」</div>
+                <div class="chahu-title">你好啊！我是書僮「茶壺」</div>
+                <div class="chahu-subtitle">歡迎來到桌記書店，今天的書店氛圍很好呢！</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -242,7 +252,6 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
                 
-        # 💡【店長可自改文字】括號內為對話框預設提示字
         if user_chat := st.chat_input("跟茶壺聊聊..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             with st.chat_message("user"):
