@@ -57,22 +57,24 @@ elif os.path.exists("chahu.jpg"):
         mime_type = "image/jpeg"
 
 # ==========================================
-# 🔒 2. 全局 CSS 視覺注入與優化 (修正貓咪圓框)
+# 🔒 2. 全局 CSS 視覺注入與優化
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
 st.markdown(f"""
     <style>
-    /* 🛠️ 頂部多留一點空白，將桌記書店招牌降低 */
+    /* 🛠️ 調整頂部空白，確保大招牌正常顯示且不突兀 */
     .block-container {{
-        padding-top: 3.5rem !important;
+        padding-top: 2.5rem !important;
         padding-bottom: 2rem !important;
     }}
-    .stAppHeader {{
-        display: none !important;
+    
+    /* 🛠️ 修正：只拿掉網頁最頂部的灰色裝飾細線，保留大招牌 */
+    header[data-testid="stHeader"] {{
+        background-color: transparent !important;
     }}
     
-    /* 1) 頂部招牌 banner [桌記書店] 放大成 150% */
+    /* 頂部招牌 banner [桌記書店] 放大成 150% */
     h1 {{
         margin-top: 0px !important;
         padding-top: 0px !important;
@@ -83,7 +85,7 @@ st.markdown(f"""
         margin-bottom: 25px !important;
     }}
 
-    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} header {{visibility: hidden;}}
+    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}}
     .viewerBadge_container__1QSob {{display: none !important;}}
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
@@ -102,15 +104,15 @@ st.markdown(f"""
         letter-spacing: 2px;
     }}
     
-    /* 🛠️ 修正（2）：釋放貓咪，拿掉圓框困住。茶煙動態視覺 */
+    /* 貓咪實體，拿掉圓框困住。茶煙動態視覺 */
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     .chahu-photo {{
-        width: 160px; /* 👈 放大一點方形畫面，顯得更大氣 */
-        height: auto; /* 保持 Pollo.ai 生成的原始比例 */
+        width: 160px; 
+        height: auto; 
         object-fit: contain;
-        border-radius: 4px; /* 👈 只保留極微小的圓角，看起來更精緻但不圈困 */
-        border: none !important; /* 👈 移除實線圓框困住 */
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* 保留一點陰影增加層次感 */
+        border-radius: 4px; 
+        border: none !important; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
     }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
@@ -153,8 +155,11 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# 頂部隱形錨點：用來實現捲回最頂端的功能
+# 頂部隱形錨點
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
+
+# 大招牌在此正式宣告
+st.title("📚 桌記書店")
 
 # ==========================================
 # 3. 撈出全局核心資料
@@ -199,8 +204,8 @@ for bk in all_books_list:
 
 slice_key = f"slice_start_{active_title}"
 if slice_key not in st.session_state and len(active_content) > 200 and not active_is_poem:
-    platform_start = st.session_state[slice_key]
-    st.session_state[slice_key] = random.randint(0, (len(active_content) - 200))
+    max_start = len(active_content) - 200
+    st.session_state[slice_key] = random.randint(0, max_start)
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
@@ -230,10 +235,8 @@ with tab1:
     
     with col_book:
         if all_books_list:
-            # 2) 重新排版：把 [📦 翻箱] 搬上去書名左邊
             btn_col, title_col = st.columns([1, 4])
             with btn_col:
-                # 4) 加上 On-Cursor tip 懸停小提示
                 if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
                     remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                     if not remain_titles:
@@ -279,8 +282,9 @@ with tab1:
                 st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
-                    current_start = st.session_state[slice_key]
-                    st.markdown(f'<div class="content-text">...... {active_content[current_start:current_start+preview_length]} ......</div>', unsafe_allow_html=True)
+                    # 🛠️ 修正：徹底修復這裡的變數拼寫錯誤，不再崩潰
+                    platform_start = st.session_state[slice_key]
+                    st.markdown(f'<div class="content-text">...... {active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
                     
                     if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
@@ -290,7 +294,6 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 3) [再翻箱] 按鈕 + On-Cursor tip 懸停提示
                         if st.button("📦 再翻箱", help="讀完了？點擊再次盲抽，並自動捲回書店最頂端！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
@@ -302,7 +305,6 @@ with tab1:
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
                             
-                            # 3) 執行捲回主頁最頂端的 JavaScript 魔法
                             st.components.v1.html("""
                                 <script>
                                     window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
@@ -319,7 +321,6 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("拋出一枚靈魂印記（限20字，包含英文單字計1字）：", max_chars=100)
             st.markdown('<div style="display:none;"><input type="text" name="mail_honey" id="mail_honey"></div>', unsafe_allow_html=True)
-            # 4) 為 [投緣] 按鈕加上 On-Cursor tip 懸停提示
             submitted = st.form_submit_button("✨ 投緣", help="點擊將您的靈魂碎片投射到下方的時代長詩中")
             
             if submitted and visitor_input:
@@ -372,7 +373,6 @@ with tab1:
     with col_chahu:
         avatar_html = ""
         if img_base64:
-            # 🛠️ 修正（2）：釋放貓咪，拿掉圓框困住。茶煙動態視覺
             avatar_html = f'<img src="data:{mime_type};base64,{img_base64}" class="chahu-photo">'
         else:
             avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu.gif 放至同資料夾</div>'
