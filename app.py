@@ -31,7 +31,7 @@ def init_db():
 【對話核心神聖指令】：
 1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我標籤。
 2. 當讀者描述任何意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
-3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格或引號）：
+3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
 例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
     
@@ -42,7 +42,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🐈 本地美短照片編碼加密傳輸 (核心修復)
+# 🐈 本地美短照片編碼加密傳輸
 # ==========================================
 img_base64 = ""
 if os.path.exists("chahu.jpg"):
@@ -56,9 +56,9 @@ st.set_page_config(page_title="桌記書店", layout="wide")
 
 st.markdown(f"""
     <style>
-    /* 🛠️ 修正（1）：頂部多留一點空白，將桌記書店招牌降低 */
+    /* 🛠️ 頂部多留一點空白，將桌記書店招牌降低 */
     .block-container {{
-        padding-top: 3.5rem !important; /* 👈 增加最頂部的流暢留白 */
+        padding-top: 3.5rem !important;
         padding-bottom: 2rem !important;
     }}
     .stAppHeader {{
@@ -78,7 +78,7 @@ st.markdown(f"""
     .viewerBadge_container__1QSob {{display: none !important;}}
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
-    /* 🛠️ 修正（4）：手機版作品內容字體調大 */
+    /* 手機版作品內容字體調大 */
     .content-text {{
         font-size: 20px !important; 
         line-height: 1.8 !important;
@@ -93,13 +93,13 @@ st.markdown(f"""
         letter-spacing: 2px;
     }}
     
-    /* 🐈 美短小貓實體照片與茶煙動態視覺 */
+    /* 美短小貓實體照片與茶煙動態視覺 */
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     .chahu-photo {{
-        width: 130px; /* 👈 可以自由縮放美短在網頁上的大小 */
+        width: 130px;
         height: 130px;
         object-fit: cover;
-        border-radius: 50%; /* 圓角頭像風 */
+        border-radius: 50%;
         border: 3px solid #dacbb5;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }}
@@ -117,7 +117,6 @@ st.markdown(f"""
     .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
     .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
     
-    /* 👑 讀者點擊沉淪按鈕客製化樣式 */
     div.stButton > button[key^="sink_btn"] {{
         background-color: #f4ebe1 !important;
         color: #5c4b37 !important;
@@ -127,7 +126,7 @@ st.markdown(f"""
         border-radius: 4px !important;
     }}
     
-    /* 👑 投緣牆：高熵長河、頭尾相接、自動換行 */
+    /* 👑 投緣牆修復：大括號閉合完美 */
     .touyuan-river {{
         background-color: #fdfbf7;
         border-left: 3px solid #dacbb5;
@@ -142,7 +141,7 @@ st.markdown(f"""
     }}
     .river-fragment {{
         display: inline;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -164,12 +163,10 @@ conn.close()
 if "sync_rerun_key" not in st.session_state:
     st.session_state.sync_rerun_key = 0
 
-# 建立高熵亂序排列清單
 if "entropy_order" not in st.session_state or len(st.session_state.entropy_order) != len(all_books_list):
     st.session_state.entropy_order = [b[1] for b in all_books_list]
     random.shuffle(st.session_state.entropy_order)
 
-# 初始化選書狀態
 if "current_book_title" not in st.session_state:
     if st.session_state.entropy_order:
         st.session_state.current_book_title = st.session_state.entropy_order[0]
@@ -182,7 +179,6 @@ if "is_fully_expanded" not in st.session_state:
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = 0
 
-# 鎖定當前書籍詳細內文與類型
 active_title = st.session_state.current_book_title
 active_content = "目前書架沒有任何書籍。"
 active_is_poem = 0
@@ -192,7 +188,6 @@ for bk in all_books_list:
         active_is_poem = bk[3]
         break
 
-# 200 字矽基盲抽隨機切片核心
 slice_key = f"slice_start_{active_title}"
 if slice_key not in st.session_state and len(active_content) > 200 and not active_is_poem:
     max_start = len(active_content) - 200
@@ -200,7 +195,6 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-# 建立或者讀取茶壺動態金句
 verse_key = f"verse_{active_title}"
 if verse_key not in st.session_state:
     if all_books_list and active_title != "無":
@@ -217,7 +211,6 @@ if verse_key not in st.session_state:
     else:
         st.session_state[verse_key] = "書架空置，靜候新章。"
 
-# 建立分頁
 tab1, tab2 = st.tabs(["🍵 書館茶座", "⚙️ 藏書閣"])
 
 # ==========================================
@@ -268,7 +261,6 @@ with tab1:
 
             st.markdown("---")
             
-            # 排版與斷章控制
             preview_length = 200
             if active_is_poem == 1:
                 st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
@@ -376,7 +368,6 @@ with tab1:
             st.caption("目前投緣牆尚無靈魂分子碰撞，正等待第一滴墨水落下。")
 
     with col_chahu:
-        # 🛠️ 修正（2）：如果抓得到 chahu.jpg 就渲染高質感頭像，沒抓到則用優雅替代文字
         avatar_html = ""
         if img_base64:
             avatar_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="chahu-photo">'
@@ -460,7 +451,7 @@ with tab1:
                     st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（藏書閣）
+# 【分頁二：管理員後台（藏書閣）】
 # ==========================================
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
