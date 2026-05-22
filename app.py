@@ -57,7 +57,7 @@ elif os.path.exists("chahu.jpg"):
         mime_type = "image/jpeg"
 
 # ==========================================
-# 🔒 2. 全局 CSS 視覺注入與優化
+# 🔒 2. 全局 CSS 視覺注入與優化 (修正貓咪圓框)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -102,25 +102,25 @@ st.markdown(f"""
         letter-spacing: 2px;
     }}
     
-    /* 美短小貓實體照片與茶煙動態視覺 */
+    /* 🛠️ 修正（2）：釋放貓咪，拿掉圓框困住。茶煙動態視覺 */
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     .chahu-photo {{
-        width: 130px;
-        height: 130px;
-        object-fit: cover;
-        border-radius: 50%;
-        border: 3px solid #dacbb5;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        width: 160px; /* 👈 放大一點方形畫面，顯得更大氣 */
+        height: auto; /* 保持 Pollo.ai 生成的原始比例 */
+        object-fit: contain;
+        border-radius: 4px; /* 👈 只保留極微小的圓角，看起來更精緻但不圈困 */
+        border: none !important; /* 👈 移除實線圓框困住 */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* 保留一點陰影增加層次感 */
     }}
-    .smoke-container {{ position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
+    .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
     .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
     @keyframes floatUp {{
         0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
         20% {{ opacity: 0.6; }}
-        60% {{ transform: translateY(-18px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
-        100% {{ transform: translateY(-30px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
+        60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
+        100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
     }}
     
     .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
@@ -199,8 +199,8 @@ for bk in all_books_list:
 
 slice_key = f"slice_start_{active_title}"
 if slice_key not in st.session_state and len(active_content) > 200 and not active_is_poem:
-    max_start = len(active_content) - 200
-    st.session_state[slice_key] = random.randint(0, max_start)
+    platform_start = st.session_state[slice_key]
+    st.session_state[slice_key] = random.randint(0, (len(active_content) - 200))
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
@@ -279,8 +279,8 @@ with tab1:
                 st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
-                    platform_start = st.session_state[slice_key]
-                    st.markdown(f'<div class="content-text">...... {active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
+                    current_start = st.session_state[slice_key]
+                    st.markdown(f'<div class="content-text">...... {active_content[current_start:current_start+preview_length]} ......</div>', unsafe_allow_html=True)
                     
                     if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
@@ -372,7 +372,7 @@ with tab1:
     with col_chahu:
         avatar_html = ""
         if img_base64:
-            # 系統已完美支援讀取動態 gif
+            # 🛠️ 修正（2）：釋放貓咪，拿掉圓框困住。茶煙動態視覺
             avatar_html = f'<img src="data:{mime_type};base64,{img_base64}" class="chahu-photo">'
         else:
             avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu.gif 放至同資料夾</div>'
@@ -421,13 +421,13 @@ with tab1:
                 chahu_reply = completion.choices[0].message.content
                 match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                 if match:
-                    target_title = match.group(1).strip()
+                    book_open_title = match.group(1).strip()
                     for bk in all_books_list:
-                        if bk[1] == target_title:
-                            st.session_state.current_book_title = target_title
+                        if bk[1] == book_open_title:
+                            st.session_state.current_book_title = book_open_title
                             st.session_state.is_fully_expanded = False
                             st.session_state.sync_rerun_key += 1
-                            st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{target_title}》！")
+                            st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                             break
             except Exception as e:
                 chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
