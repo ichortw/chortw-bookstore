@@ -3,8 +3,10 @@ import sqlite3
 import random
 import json
 import re
+import os
 from datetime import datetime
 from groq import Groq
+import base64
 
 # ==========================================
 # 1. 初始化資料庫 (確保 is_poem 與 stamps 存在)
@@ -40,76 +42,93 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🔒 2. 拔高主版面、縮減頂部留白 + 手機字體調大注入
+# 🐈 本地美短照片編碼加密傳輸 (核心修復)
+# ==========================================
+img_base64 = ""
+if os.path.exists("chahu.jpg"):
+    with open("chahu.jpg", "rb") as image_file:
+        img_base64 = base64.b64encode(image_file.read()).decode()
+
+# ==========================================
+# 🔒 2. 招牌降低、頂部留空 + 美短貓咪圓角照片視覺注入
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    /* 🛠️ 修正（3）：狠砍頂部巨大白區，拔高主版面 */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-    }
-    .stAppHeader {
+    /* 🛠️ 修正（1）：頂部多留一點空白，將桌記書店招牌降低 */
+    .block-container {{
+        padding-top: 3.5rem !important; /* 👈 增加最頂部的流暢留白 */
+        padding-bottom: 2rem !important;
+    }}
+    .stAppHeader {{
         display: none !important;
-    }
-    h1 {
-        margin-top: -35px !important;
+    }}
+    h1 {{
+        margin-top: 0px !important;
         padding-top: 0px !important;
-        font-size: 28px !important;
+        font-size: 32px !important;
         color: #1a202c;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 8px;
-    }
+        border-bottom: 2px solid #dacbb5;
+        padding-bottom: 12px;
+        margin-bottom: 25px !important;
+    }}
 
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .viewerBadge_container__1QSob {display: none !important;}
-    .chahu-minimal-area { background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }
+    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} header {{visibility: hidden;}}
+    .viewerBadge_container__1QSob {{display: none !important;}}
+    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
-    /* 🛠️ 修正（4）：手機版作品內容字體調大 (有需要改數值請在這裡修改) */
-    .content-text {
-        font-size: 20px !important; /* 👈 散文小說手機版與電腦版通用內容 px 值 */
+    /* 🛠️ 修正（4）：手機版作品內容字體調大 */
+    .content-text {{
+        font-size: 20px !important; 
         line-height: 1.8 !important;
         color: #2d3748;
         text-align: justify;
-    }
-    .poem-text {
-        font-size: 22px !important; /* 👈 詩集內容的 px 值 */
+    }}
+    .poem-text {{
+        font-size: 22px !important; 
         line-height: 2.0 !important;
         color: #4a5568;
         text-align: center;
         letter-spacing: 2px;
-    }
+    }}
     
-    /* 🐈 美短小貓全身與茶煙動態視覺 */
-    .avatar-area { font-size: 50px; position: relative; display: inline-block; line-height: 1.1; margin-bottom: 5px; }
-    .smoke-container { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; }
-    .smoke-line { position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }
-    .smoke-1 { left: 8px; height: 12px; animation-delay: 0s; }
-    .smoke-2 { left: 18px; height: 16px; animation-delay: 0.8s; }
-    @keyframes floatUp {
-        0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
-        20% { opacity: 0.6; }
-        60% { transform: translateY(-18px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }
-        100% { transform: translateY(-30px) scaleX(2.2) scaleY(0.4); opacity: 0; }
-    }
+    /* 🐈 美短小貓實體照片與茶煙動態視覺 */
+    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
+    .chahu-photo {{
+        width: 130px; /* 👈 可以自由縮放美短在網頁上的大小 */
+        height: 130px;
+        object-fit: cover;
+        border-radius: 50%; /* 圓角頭像風 */
+        border: 3px solid #dacbb5;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }}
+    .smoke-container {{ position: absolute; top: -30px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
+    .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
+    .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
+    .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
+    @keyframes floatUp {{
+        0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
+        20% {{ opacity: 0.6; }}
+        60% {{ transform: translateY(-18px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
+        100% {{ transform: translateY(-30px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
+    }}
     
-    .chahu-title { font-size: 15px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }
-    .chahu-subtitle { font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }
+    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
+    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
     
     /* 👑 讀者點擊沉淪按鈕客製化樣式 */
-    div.stButton > button[key^="sink_btn"] {
+    div.stButton > button[key^="sink_btn"] {{
         background-color: #f4ebe1 !important;
         color: #5c4b37 !important;
         border: 1px solid #dacbb5 !important;
         padding: 2px 10px !important;
         font-weight: bold !important;
         border-radius: 4px !important;
-    }
+    }}
     
     /* 👑 投緣牆：高熵長河、頭尾相接、自動換行 */
-    .touyuan-river {
+    .touyuan-river {{
         background-color: #fdfbf7;
         border-left: 3px solid #dacbb5;
         padding: 14px;
@@ -120,8 +139,8 @@ st.markdown("""
         font-size: 16px;
         letter-spacing: 1px;
         text-align: justify;
-    }
-    .river-fragment {
+    }}
+    .river-fragment {{
         display: inline;
     }
     </style>
@@ -142,7 +161,6 @@ c.execute("SELECT content FROM stamps ORDER BY id DESC")
 current_stamps = [r[0] for r in c.fetchall()]
 conn.close()
 
-# 🛠️ 修正（1）：引入同步更新密鑰機制，防止記憶體卡死不跳轉
 if "sync_rerun_key" not in st.session_state:
     st.session_state.sync_rerun_key = 0
 
@@ -221,7 +239,6 @@ with tab1:
             idx = shuffled_titles.index(active_title)
             st.markdown(f"**✨ {st.session_state[verse_key]}**")
             
-            # 🛠️ 修正（1）：為下拉選單注入動態密鑰（sync_rerun_key），強制作案跳轉刷新
             selected_title = st.selectbox(
                 "隱藏標籤選單：", 
                 shuffled_titles, 
@@ -237,7 +254,6 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
             
-            # 🛠️ 修正（1）：［📦 翻箱］強制修改選書並遞增金鑰，突破網頁緩存死鎖
             if st.button("📦 翻箱", help="在混亂的古舊字箱裡盲抽另一本作品"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
@@ -245,7 +261,7 @@ with tab1:
                 chosen = random.choice(remain_titles)
                 st.session_state.current_book_title = chosen
                 st.session_state.is_fully_expanded = False
-                st.session_state.sync_rerun_key += 1 # 👈 破壞舊選單緩存
+                st.session_state.sync_rerun_key += 1
                 if f"slice_start_{chosen}" in st.session_state:
                     del st.session_state[f"slice_start_{chosen}"]
                 st.rerun()
@@ -255,10 +271,8 @@ with tab1:
             # 排版與斷章控制
             preview_length = 200
             if active_is_poem == 1:
-                # 📜 詩通道
                 st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
-                # 📝 散文小說通道
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     start_pos = st.session_state[slice_key]
                     st.markdown(f'<div class="content-text">...... {active_content[start_pos:start_pos+preview_length]} ......</div>', unsafe_allow_html=True)
@@ -269,7 +283,6 @@ with tab1:
                 else:
                     st.markdown(f'<div class="content-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
                     
-                    # 🛠️ 修正（1）：篇末［📦 再翻箱］同樣注入狀態更新鑰
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("📦 再翻箱", key="rear_unboxing_btn"):
@@ -279,16 +292,13 @@ with tab1:
                             chosen = random.choice(remain_titles)
                             st.session_state.current_book_title = chosen
                             st.session_state.is_fully_expanded = False
-                            st.session_state.sync_rerun_key += 1 # 👈 破壞舊選單緩存
+                            st.session_state.sync_rerun_key += 1
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
                             st.rerun()
         else:
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             
-        # ==========================================
-        # 👑 投緣牆：全面改用 逗號［，］接句，棄用閃星圖標
-        # ==========================================
         st.markdown("---")
         st.subheader("🔮 投緣牆（集體相認長詩）")
         
@@ -313,7 +323,7 @@ with tab1:
                         
                         eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 現在時空背景：北半球亞熱帶、氣溫 {current_temp} 度、當前時間 {current_hour} 點。
-請審查以下這句訪客留言。目前正值開張初期，你的審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，就請判為通過(true)！
+請審查以下這句訪客留言。目前正值開張初期，你的審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲絲人性情緒、孤獨感或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
 
@@ -357,7 +367,6 @@ with tab1:
                 st.error(f"🐈🐾 茶壺：{st.session_state.touyuan_feedback}")
             del st.session_state.touyuan_feedback
 
-        # 🛠️ 修正（2）：接龍改用逗號［，］接句，棄用原本的 ✦ 圖標
         if current_stamps:
             st.markdown('<div class="touyuan-river">', unsafe_allow_html=True)
             river_text = "，".join([s.strip() for s in current_stamps])
@@ -367,16 +376,23 @@ with tab1:
             st.caption("目前投緣牆尚無靈魂分子碰撞，正等待第一滴墨水落下。")
 
     with col_chahu:
+        # 🛠️ 修正（2）：如果抓得到 chahu.jpg 就渲染高質感頭像，沒抓到則用優雅替代文字
+        avatar_html = ""
+        if img_base64:
+            avatar_html = f'<img src="data:image/jpeg;base64,{img_base64}" class="chahu-photo">'
+        else:
+            avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓照片命名為 chahu.jpg 放至同資料夾</div>'
+
         st.markdown(f"""
             <div class="chahu-minimal-area">
                 <div class="avatar-area">
                     <div class="smoke-container">
                         <div class="smoke-line smoke-1"></div><div class="smoke-line smoke-2"></div>
                     </div>
-                    🐈🐾🐾
+                    {avatar_html}
                 </div>
                 <div class="chahu-title">書僮「茶壺」</div>
-                <div class="chahu-subtitle">（一隻端正蹲著、帶著300%專注與希冀眼神看著你的少年美短貓）</div>
+                <div class="chahu-subtitle">（少年的美國短毛貓，正帶著300%專注與好奇的眼神看著你）</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -419,7 +435,6 @@ with tab1:
                 )
                 chahu_reply = completion.choices[0].message.content
                 
-                # 檢查隔空移物指令
                 match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                 if match:
                     target_book_title = match.group(1).strip()
@@ -428,7 +443,7 @@ with tab1:
                             st.session_state.current_book_title = target_book_title
                             st.session_state.is_fully_expanded = False
                             st.session_state.is_poem = bk[3]
-                            st.session_state.sync_rerun_key += 1 # 👈 🛠️ 修正（1）：茶壺選書成功後，同步打破緩存，強制作案切換！
+                            st.session_state.sync_rerun_key += 1
                             if f"slice_start_{target_book_title}" in st.session_state:
                                 del st.session_state[f"slice_start_{target_book_title}"]
                             st.toast(f"🐈 貓咪茶壺施展了隔空移物，幫您翻開了《{target_book_title}》！")
@@ -525,8 +540,6 @@ with tab2:
         for bk in all_books_list:
             bk_id, bk_title, _, bk_poem = bk
             col1, col2 = st.columns([5, 1])
-            for bk in all_books_list:
-                pass
             with col1:
                 st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
             with col2:
