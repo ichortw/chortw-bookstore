@@ -42,22 +42,19 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🔐 雙重金鑰安全讀取機制 (完美相容 Render 與 Streamlit Cloud)
+# 🔐 雙重金鑰安全讀取機制 (徹底解決 No secrets found 報錯)
 # ==========================================
 def get_groq_api_key():
-    # 1. 優先嘗試從 Render / 系統環境變數讀取
+    # 1. 絕對優先從 Render 環境變數拿，這樣完全不會觸發 Streamlit 的 secrets 報錯機制
     api_key = os.environ.get("GROQ_API_KEY")
     if api_key:
         return api_key
     
-    # 2. 如果環境變數沒有，嘗試從 Streamlit secrets 讀取
+    # 2. 如果環境變數沒有，才偷偷用 try 讀取本地測試的 secrets
     try:
-        if "GROQ_API_KEY" in st.secrets:
-            return st.secrets["GROQ_API_KEY"]
+        return st.secrets.get("GROQ_API_KEY", None)
     except:
-        pass
-        
-    return None
+        return None
 
 # ==========================================
 # 🐈 優先讀取動態 chahu.gif，若無則讀取靜態 chahu.jpg
@@ -83,14 +80,12 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 2. 全局 CSS 視覺注入與優化 (整合大招牌與 SEO 關鍵字)
+# 🔒 全局 CSS 視覺注入與優化
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-# ✨ 透過 HTML components 注入 SEO 關鍵字與 Meta 描述，提升搜尋引擎排名的曝光機會
 st.components.v1.html("""
     <script>
-        // 動態將 SEO 標籤注入到主網頁的 <head> 當中
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
         metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
@@ -108,22 +103,16 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
-# 注入全局 CSS 與自訂 Banner 樣式
 st.markdown(f"""
     <style>
-    /* 🛠️ 調整頂部空白，確保大招牌正常顯示且不突兀 */
     .block-container {{
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
     }}
-    
-    /* 修正：只拿掉網頁最頂部的灰色裝飾細線 */
     header[data-testid="stHeader"] {{
         background-color: transparent !important;
         pointer-events: none !important; 
     }}
-    
-    /* 🛠️ 全面封殺與隱藏新版右上角的功能按鈕、Deploy 按鈕與主選單 */
     div[data-testid="stStatusWidget"],
     .stDeployButton,
     button[data-testid="baseButton-header"],
@@ -136,20 +125,18 @@ st.markdown(f"""
         opacity: 0 !important;
         pointer-events: none !important;
     }}
-
     #MainMenu {{visibility: hidden; display: none !important;}} 
     footer {{visibility: hidden; display: none !important;}}
     .viewerBadge_container__1QSob {{display: none !important;}}
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
-    /* ✨ 店長自訂大招牌 Banner 區塊 CSS 樣式 */
     .zhuoji-banner {{
         background-image: url('data:image/jpeg;base64,{banner_base64}');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
         width: 100%;
-        height: 220px; /* 根據店長圖片比例調整的高度 */
+        height: 220px;
         border-radius: 8px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.15);
         margin-bottom: 25px;
@@ -157,36 +144,11 @@ st.markdown(f"""
         align-items: center;
         justify-content: center;
     }}
-    /* 如果背景圖載入失敗，顯示優雅的預備底色 */
-    div.zhuoji-banner {{
-        background-color: #e8ded1;
-    }}
-    
-    /* 手機版作品內容字體調大 */
-    .content-text {{
-        font-size: 20px !important; 
-        line-height: 1.8 !important;
-        color: #2d3748;
-        text-align: justify;
-    }}
-    .poem-text {{
-        font-size: 22px !important; 
-        line-height: 2.0 !important;
-        color: #4a5568;
-        text-align: center;
-        letter-spacing: 2px;
-    }}
-    
-    /* 貓咪實體，拿掉圓框困住。茶煙動態視覺 */
+    div.zhuoji-banner {{ background-color: #e8ded1; }}
+    .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
+    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{
-        width: 160px; 
-        height: auto; 
-        object-fit: contain;
-        border-radius: 4px; 
-        border: none !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-    }}
+    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -197,51 +159,16 @@ st.markdown(f"""
         60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
         100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
     }}
-    
     .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
     .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
-    
-    div.stButton > button[key^="sink_btn"] {{
-        background-color: #f4ebe1 !important;
-        color: #5c4b37 !important;
-        border: 1px solid #dacbb5 !important;
-        padding: 2px 10px !important;
-        font-weight: bold !important;
-        border-radius: 4px !important;
-    }}
-    
-    .touyuan-river {{
-        background-color: #fdfbf7;
-        border-left: 3px solid #dacbb5;
-        padding: 14px;
-        border-radius: 4px;
-        font-family: "Noto Serif TC", serif;
-        line-height: 1.8;
-        color: #3a2e2b;
-        font-size: 16px;
-        letter-spacing: 1px;
-        text-align: justify;
-    }}
-    .river-fragment {{
-        display: inline;
-    }}
-    
-    /* 🛡️ 蜜罐陷阱 (Honeypot) 專用隱形術：讓人類肉眼完全看不到此輸入框 */
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
-        visibility: hidden !important;
-        height: 0px !important;
-        width: 0px !important;
-    }}
+    div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
+    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
+    .river-fragment {{ display: inline; }}
+    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{ position: absolute !important; left: -9999px !important; top: -9999px !important; visibility: hidden !important; height: 0px !important; width: 0px !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# 確保全域頂部錨點，讓 JavaScript 隨時可以抓取
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
-
-# ✨ 替換原先粗糙的純文字 st.title，改用店長設計的滿版藝術大招牌區塊
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -276,7 +203,6 @@ if "is_fully_expanded" not in st.session_state:
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = 0
 
-# 用來處理強制頂部捲動的 Session State
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
@@ -300,7 +226,7 @@ verse_key = f"verse_{active_title}"
 if verse_key not in st.session_state:
     if all_books_list and active_title != "無":
         try:
-            groq_key = get_groq_api_key() # 修正 1：改用相容函數讀取金鑰
+            groq_key = get_groq_api_key()
             if groq_key:
                 temp_client = Groq(api_key=groq_key)
                 verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:300]}"
@@ -315,14 +241,13 @@ if verse_key not in st.session_state:
     else:
         st.session_state[verse_key] = "書架空置，靜候新章。"
 
-# 檢查是否有強制向上捲動的觸發器
 if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("""
         <script>
             window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
         </script>
     """, height=0, width=0)
-    st.session_state.scroll_to_top_trigger = False  # 執行完畢立刻重置
+    st.session_state.scroll_to_top_trigger = False
 
 tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 書閣"])
 
@@ -401,26 +326,20 @@ with tab1:
                             st.session_state.sync_rerun_key += 1
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
-                            
                             st.session_state.scroll_to_top_trigger = True  
                             st.rerun()
         else:
             st.subheader("無作品")
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
-            
             st.markdown("---")
+            
         st.subheader("🛡️ 投緣牆")
-        
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            
-            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（與前端 CSS 的 id 完美綁定）
             bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", key="chahu_honeypot_field")
-            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
-                # 🚨 蜜罐防禦觸發：如果誘餌欄位有值，判定為自動化惡意機器人
                 if bot_trap:
                     st.session_state.touyuan_feedback = "thank you"
                 else:
@@ -428,9 +347,9 @@ with tab1:
                     if len(words) > 20:
                         st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                     else:
-                        groq_key = get_groq_api_key() # 修正 2：改用相容函數讀取金鑰
+                        groq_key = get_groq_api_key()
                         if not groq_key:
-                            st.session_state.touyuan_feedback = "🐾 （提示：Render 後台未偵測到 GROQ_API_KEY，請確認環境變數設定）"
+                            st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GROQ_API_KEY，請檢查環境變數）"
                         else:
                             try:
                                 client = Groq(api_key=groq_key)
@@ -507,7 +426,7 @@ with tab1:
                 st.write(user_chat)
                 
             match = None  
-            groq_key = get_groq_api_key() # 修正 3：改用相容函數讀取金鑰
+            groq_key = get_groq_api_key()
             
             if not groq_key:
                 chahu_reply = "😮‍💨 喵嗚... 店長還沒在 Render 後台填入 `GROQ_API_KEY` 環境變數，我現在沒辦法陪你聊天..."
