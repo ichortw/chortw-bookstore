@@ -74,7 +74,7 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與優化 (終極隱形修正版)
+# 🔒 全局 CSS 視覺注入與優化 (全面採用格式化防護)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -97,6 +97,7 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
+# 使用百分比轉義（{{ 和 }}）保護 CSS 大括號不被 Python 格式化引擎誤認
 st.markdown(f"""
     <style>
     .block-container {{
@@ -160,10 +161,11 @@ st.markdown(f"""
     .river-fragment {{ display: inline; }}
     
     /* 🛡️ 終極大絕：強制拔除蜜糖罐元件的所有視覺屬性與佔用空間 */
+    div[data-testid="stFieldContainer"]:has(input[id="chahu_honeypot_field"]),
+    div[data-testid="stFieldContainer"]:has(input[key="chahu_honeypot_field"]),
     [data-testid="stTextInput"]:has(#chahu_honeypot_field),
     [data-testid="stTextInput"]:has([key="chahu_honeypot_field"]),
-    div[data-testid="stFieldContainer"]:has(#chahu_honeypot_field),
-    .stTextInput:has(#chahu_honeypot_field) {
+    .stTextInput:has(#chahu_honeypot_field) {{
         display: none !important;
         visibility: hidden !important;
         position: absolute !important;
@@ -175,7 +177,7 @@ st.markdown(f"""
         opacity: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-    }
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -348,7 +350,7 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
-            # 🤖 機器人蜜糖罐：升級配置，雙重鎖死隱形
+            # 🤖 機器人蜜糖罐：使用原生隱藏標籤，並將預設 DOM ID 與 key 同步鎖死
             bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", id="chahu_honeypot_field", key="chahu_honeypot_field", label_visibility="collapsed")
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
@@ -480,7 +482,7 @@ with tab1:
                     st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（藏書閣）
+# 【分頁二：管理員後台（藏書閣）】
 # ==========================================
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
