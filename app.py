@@ -72,25 +72,25 @@ st.markdown(f"""
     /* 修正：只拿掉網頁最頂部的灰色裝飾細線，保留大招牌 */
     header[data-testid="stHeader"] {{
         background-color: transparent !important;
+        pointer-events: none !important; /* 防止任何人點擊頂部殘留隱形區域 */
     }}
     
-    /* 🛠️ 修正（4）：徹底隱藏右上角的 Deploy、View Source 按鈕與所有選單 */
-    div[data-testid="stStatusWidget"] {{ display: none !important; }}
-    .stDeployButton {{ display: none !important; }}
-    button[data-testid="baseButton-header"] {{ display: none !important; }}
-    
-    /* 頂部招牌 banner [桌記書店] 放大成 150% */
-    h1 {{
-        margin-top: 0px !important;
-        padding-top: 0px !important;
-        font-size: 48px !important; 
-        color: #1a202c;
-        border-bottom: 2px solid #dacbb5;
-        padding-bottom: 12px;
-        margin-bottom: 25px !important;
+    /* 🛠️ 修正（4）：全面封殺與隱藏新版右上角的三個點 [···] 功能按鈕、Deploy 按鈕與主選單 */
+    div[data-testid="stStatusWidget"],
+    .stDeployButton,
+    button[data-testid="baseButton-header"],
+    button[aria-label="Context menu"],
+    button[title="Developer options"],
+    div[class*="stActionButton"],
+    header button {{
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }}
 
-    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}}
+    #MainMenu {{visibility: hidden; display: none !important;}} 
+    footer {{visibility: hidden; display: none !important;}}
     .viewerBadge_container__1QSob {{display: none !important;}}
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
@@ -283,7 +283,7 @@ with tab1:
             # 修正（2）：將「翻箱」鍵完整移回作品下拉清單下方、內容上方兩者之間
             if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not remain_titles:
+                if not require_titles:
                     remain_titles = [b[1] for b in all_books_list]
                 chosen = random.choice(remain_titles)
                 st.session_state.current_book_title = chosen
@@ -485,7 +485,7 @@ with tab2:
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
-                    st.success(f"🎉 《{new_title}深度匯入！")
+                    st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
         st.subheader("🛡️ 館藏備份與還原")
