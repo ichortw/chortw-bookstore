@@ -8,6 +8,32 @@ from datetime import datetime
 from groq import Groq
 import base64
 
+# =====================================================================
+# 🛡️ 核心防禦模組：零寬字元隱形數位指紋（背景版權護衛）
+# =====================================================================
+def inject_invisible_watermark(text, author_id="ZhuojiBookstore"):
+    if not text:
+        return text
+    # 將指紋轉為二進位字串
+    binary_signature = ''.join(format(ord(c), '08b') for c in author_id)
+    invisible_code = ""
+    # 1 對應零寬間隔，0 對應零寬不連字
+    for bit in binary_signature:
+        if bit == '1':
+            invisible_code += "\u200b"
+        else:
+            invisible_code += "\u200c"
+            
+    # 將指紋織入每一段落的開頭與內部，複製者不論怎麼貼都會帶有這個數位烙印
+    paragraphs = text.split('\n')
+    watermarked_paragraphs = []
+    for i, p in enumerate(paragraphs):
+        if i == 0 and len(p) > 2:
+            watermarked_paragraphs.append(p[:2] + invisible_code + p[2:])
+        else:
+            watermarked_paragraphs.append(p + invisible_code)
+    return '\n'.join(watermarked_paragraphs)
+
 # ==========================================
 # 1. 初始化資料庫 (確保 is_poem 與 stamps 存在)
 # ==========================================
@@ -69,7 +95,7 @@ if os.path.exists("banner.jpg"):
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-# ✨ 透過 HTML components 注入 SEO 關鍵字與 Meta 描述，提升搜尋引擎排名的曝光機會
+# ✨ 透過 HTML components 注入 SEO 關鍵字與 Meta 描述，並加入全面防複製腳本
 st.components.v1.html("""
     <script>
         // 動態將 SEO 標籤注入到主網頁的 <head> 當中
@@ -87,12 +113,29 @@ st.components.v1.html("""
         metaAuthor.name = "author";
         metaAuthor.content = "桌記書店店長";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
+
+        // 🛡️ 實體防禦：禁止右鍵選單與 Ctrl+C 複製
+        window.parent.document.addEventListener('contextmenu', event => event.preventDefault());
+        window.parent.document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.keyCode == 67) {
+                e.preventDefault();
+                alert('『桌記書店』提醒您：原創文學作品受版權指紋護衛，禁止拷貝。');
+                return false;
+            }
+        });
     </script>
 """, height=0, width=0)
 
 # 注入全局 CSS 與自訂 Banner 樣式
 st.markdown(f"""
     <style>
+    /* 🛡️ 樣式防禦：從瀏覽器底層禁止選取文字 */
+    .stApp, .content-text, .poem-text, p, span, div, h1, h2, h3 {{
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        user-select: none !important;
+    }}
+
     /* 🛠️ 調整頂部空白，確保大招牌正常顯示且不突兀 */
     .block-container {{
         padding-top: 1.5rem !important;
@@ -271,9 +314,12 @@ for bk in all_books_list:
         active_is_poem = bk[3]
         break
 
+# 🔒 在這裡將抽取出來的內容織入隱形指紋
+protected_active_content = inject_invisible_watermark(active_content)
+
 slice_key = f"slice_start_{active_title}"
-if slice_key not in st.session_state and len(active_content) > 200 and not active_is_poem:
-    max_start = len(active_content) - 200
+if slice_key not in st.session_state and len(protected_active_content) > 200 and not active_is_poem:
+    max_start = len(protected_active_content) - 200
     st.session_state[slice_key] = random.randint(0, max_start)
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
@@ -356,19 +402,19 @@ with tab1:
             
             preview_length = 200
             if active_is_poem == 1:
-                st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="poem-text">{protected_active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
-                if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
+                if len(protected_active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
-                    st.markdown(f'<div class="content-text">...... {active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="content-text">...... {protected_active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
                     
                     if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
-                    st.markdown(f'<div class="content-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="content-text">{protected_active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
                     
-                    if len(active_content) > preview_length:
+                    if len(protected_active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("📦 再翻箱", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
@@ -393,7 +439,7 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
-            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（與前端 CSS 的 id 完美綁定）
+            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（完全保留，一個字都沒動）
             bot_trap = st.text_input("🤖 捕蟲蜜糖樽，請勿填寫", key="chahu_honeypot_field")
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
