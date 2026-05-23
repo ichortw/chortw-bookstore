@@ -488,7 +488,7 @@ with tab2:
     st.header("⚙️ 作品上架與管理系統")
     admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
     
-    if admin_password == "Pint2012echo":
+    if admin_password == "DDD":
         st.success("🔓 店長身分驗證成功！")
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
