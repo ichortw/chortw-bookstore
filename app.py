@@ -280,7 +280,6 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            # 🛠️ 這裡已修復：修正當初錯打的 require_titles 變數名稱
             if st.button("📦 翻箱", help="讓茶壺從箱子裡幫你隨手翻一本書出來吧！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
@@ -418,6 +417,7 @@ with tab1:
             with st.chat_message("user"):
                 st.write(user_chat)
                 
+            match = None  # 預先初始化避免異常時產生變數未定義錯誤
             try:
                 groq_key = st.secrets["GROQ_API_KEY"]
                 client = Groq(api_key=groq_key)
@@ -450,7 +450,7 @@ with tab1:
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', chahu_reply))
-                if 'match' in locals() and match:
+                if match:
                     st.rerun()
 
 # ==========================================
@@ -481,7 +481,7 @@ with tab2:
             if st.button("確認上架"):
                 if new_title and new_content:
                     conn = sqlite3.connect('zhuoji_books.db')
-                    c = cursor()
+                    c = conn.cursor()  # ✨ 已經幫你修正這裡！原先為錯誤的 cursor() 
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
