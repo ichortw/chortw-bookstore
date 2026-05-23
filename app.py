@@ -394,7 +394,7 @@ with tab1:
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
             # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（與前端 CSS 的 id 完美綁定）
-            bot_trap = st.text_input("🤖 機器人誘餌（人類看不到此欄位，請勿填寫）", key="chahu_honeypot_field")
+            bot_trap = st.text_input("🤖 捕蟲蜜糖樽，請勿填寫", key="chahu_honeypot_field")
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
