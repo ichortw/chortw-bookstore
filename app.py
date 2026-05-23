@@ -80,7 +80,7 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與優化
+# 🔒 全局 CSS 視覺注入與優化 (已修正 Honeypot 蜜糖罐隱形 bug)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -164,7 +164,19 @@ st.markdown(f"""
     div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{ position: absolute !important; left: -9999px !important; top: -9999px !important; visibility: hidden !important; height: 0px !important; width: 0px !important; }}
+    
+    /* 🛡️ 雙重保險：徹底讓機器人蜜糖罐欄位在人類視覺中蒸發 */
+    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]),
+    div[data-testid="stTextInput"]:has(input[key="chahu_honeypot_field"]) {
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        width: 0px !important;
+        height: 0px !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+        display: none !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -336,7 +348,10 @@ with tab1:
         st.subheader("🛡️ 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", key="chahu_honeypot_field")
+            
+            # 🤖 機器人蜜糖罐：加入 id 與 key 屬性，搭配最上方的 CSS 達成完美隱形
+            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", id="chahu_honeypot_field", key="chahu_honeypot_field")
+            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
