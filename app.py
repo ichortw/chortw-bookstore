@@ -29,7 +29,7 @@ def init_db():
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我標籤。
+1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我標籤。
 2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
@@ -40,6 +40,28 @@ def init_db():
     conn.close()
 
 init_db()
+
+# ==========================================
+# 🛡️ IP 版權護衛演算法：零寬度隱形浮水印 (Zero-Width Watermark)
+# ==========================================
+def inject_watermark(text):
+    if not text:
+        return text
+    # 定義兩個肉眼完全看不見的 Unicode 零寬度字元作為我們的「桌記原創密碼」
+    ZW_A = "\u200B" # Zero-Width Space
+    ZW_B = "\u200C" # Zero-Width Non-Joiner
+    
+    # 桌記書店的專屬隱形指紋 (由 A 和 B 組成的特定序列暗號)
+    fingerprint = ZW_A + ZW_B + ZW_A + ZW_A + ZW_B
+    
+    result = []
+    for char in text:
+        result.append(char)
+        # 為了不讓字串體積暴增，我們有 35% 的機率在字與字之間塞入隱形指紋
+        if random.random() < 0.35:
+            result.append(fingerprint)
+            
+    return "".join(result)
 
 # ==========================================
 # 🔐 雙重金鑰安全讀取機制
@@ -76,7 +98,7 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入 (徹底消滅 f-string，百分之百防止 NameError)
+# 🔒 全局 CSS 視覺注入與防複製防右鍵盾牌 (安全分離，禁絕 f-string 地雷)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -96,10 +118,13 @@ st.components.v1.html("""
         metaAuthor.name = "author";
         metaAuthor.content = "桌記書店店長";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
+        
+        // 🔒 額外防禦 JS 盾牌：停用主視窗的右鍵與選取（雙重保險）
+        window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
     </script>
 """, height=0, width=0)
 
-# 使用字串拼接（+）來安全塞入動態變數，絕不用 f-string，徹底斷絕 Python 誤判 CSS 大括號的後患
+# 使用字串拼接安全塞入動態 Banner
 banner_css = """
     <style>
     .zhuoji-banner {
@@ -120,9 +145,17 @@ banner_css = """
 """
 st.markdown(banner_css, unsafe_allow_html=True)
 
-# 載入其餘不含動態變數的純靜態前端樣式
+# 載入純靜態前端樣式 + 🔒 CSS 護衛盾牌 (全面禁止複製與選取)
 st.markdown("""
     <style>
+    /* 🛡️ CSS Guard: 全局全面禁止反白、選取與複製文字 */
+    body, .stApp, .content-text, .poem-text, p, span, div, h1, h2, h3 {
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+        user-select: none !important;
+    }
+    
     .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
@@ -305,17 +338,24 @@ with tab1:
             
             preview_length = 200
             if active_is_poem == 1:
-                st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                # 🛡️ 注入隱形浮水印保護詩集內容
+                protected_poem = inject_watermark(active_content)
+                st.markdown(f'<div class="poem-text">{protected_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
-                    st.markdown(f'<div class="content-text">...... {active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
+                    preview_text = active_content[platform_start:platform_start+preview_length]
+                    # 🛡️ 注入隱形浮水印保護散文預覽內容
+                    protected_preview = inject_watermark(preview_text)
+                    st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
                     
                     if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
-                    st.markdown(f'<div class="content-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                    # 🛡️ 注入隱形浮水印保護散文全文內容
+                    protected_full = inject_watermark(active_content)
+                    st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -339,29 +379,20 @@ with tab1:
         st.subheader("🛡️ 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            
-            # 🤖 終極安全蜜糖罐：完全不使用 st.text_input 的非法參數，而是直接用原生 HTML 容器在外層做絕對隱形！
-            st.markdown('<div style="display: none !important; visibility: hidden !important; opacity: 0 !important; position: absolute !important; left: -9999px !important; width: 0px !important; height: 0px !important; overflow: hidden !important;">', unsafe_allow_html=True)
-            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", key="chahu_honeypot_field", label_visibility="collapsed")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
-                if bot_trap:
-                    st.session_state.touyuan_feedback = "thank you"
+                words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
+                if len(words) > 20:
+                    st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                 else:
-                    words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
-                    if len(words) > 20:
-                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
+                    groq_key = get_groq_api_key()
+                    if not groq_key:
+                        st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GROQ_API_KEY，請檢查環境變數）"
                     else:
-                        groq_key = get_groq_api_key()
-                        if not groq_key:
-                            st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GROQ_API_KEY，請檢查環境變數）"
-                        else:
-                            try:
-                                client = Groq(api_key=groq_key)
-                                eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
+                        try:
+                            client = Groq(api_key=groq_key)
+                            eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
@@ -371,20 +402,20 @@ with tab1:
   "passed": true或false,
   "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
 }}"""
-                                response = client.chat.completions.create(
-                                    model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
+                            response = client.chat.completions.create(
+                                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
                                 )
-                                res_json = json.loads(response.choices[0].message.content)
-                                st.session_state.touyuan_feedback = res_json["reply"]
+                            res_json = json.loads(response.choices[0].message.content)
+                            st.session_state.touyuan_feedback = res_json["reply"]
                                 
-                                if res_json["passed"]:
-                                    conn = sqlite3.connect('zhuoji_books.db')
-                                    c = conn.cursor()
-                                    c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                                    conn.commit()
-                                    conn.close()
-                            except:
-                                st.session_state.touyuan_feedback = "thank you"
+                            if res_json["passed"]:
+                                conn = sqlite3.connect('zhuoji_books.db')
+                                c = conn.cursor()
+                                c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                conn.commit()
+                                conn.close()
+                        except:
+                            st.session_state.touyuan_feedback = "thank you"
                 st.rerun()
 
         if "touyuan_feedback" in st.session_state:
@@ -480,7 +511,7 @@ with tab2:
     st.header("⚙️ 作品上架與管理系統")
     admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
     
-    if admin_password == "DDD":
+    if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
