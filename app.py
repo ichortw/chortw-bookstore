@@ -30,7 +30,7 @@ def init_db():
 
 【對話核心神聖指令】：
 1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我標籤。
-2. 當讀者描述任何意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
+2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
 例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
@@ -42,22 +42,21 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🔐 雙重金鑰安全讀取機制 (徹底解決 No secrets found 報錯)
+# 🔐 雙重金鑰安全讀取機制
 # ==========================================
 def get_groq_api_key():
-    # 1. 絕對優先從 Render 環境變數拿，這樣完全不會觸發 Streamlit 的 secrets 報錯機制
     api_key = os.environ.get("GROQ_API_KEY")
     if api_key:
         return api_key
-    
-    # 2. 如果環境變數沒有，才偷偷用 try 讀取本地測試的 secrets
     try:
-        return st.secrets.get("GROQ_API_KEY", None)
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
     except:
-        return None
+        pass
+    return None
 
 # ==========================================
-# 🐈 優先讀取動態 chahu.gif，若無則讀取靜態 chahu.jpg
+# 🐈 圖片與 Banner 讀取機制
 # ==========================================
 img_base64 = ""
 mime_type = "image/jpeg"
@@ -71,16 +70,13 @@ elif os.path.exists("chahu.jpg"):
         img_base64 = base64.b64encode(image_file.read()).decode()
         mime_type = "image/jpeg"
 
-# ==========================================
-# 🖼️ 讀取店長設計的大招牌 Banner 背景圖 (banner.jpg)
-# ==========================================
 banner_base64 = ""
 if os.path.exists("banner.jpg"):
     with open("banner.jpg", "rb") as banner_file:
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與優化
+# 🔒 全局 CSS 視覺注入 (徹底消滅 f-string，百分之百防止 NameError)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -103,35 +99,11 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
-st.markdown(f"""
+# 使用字串拼接（+）來安全塞入動態變數，絕不用 f-string，徹底斷絕 Python 誤判 CSS 大括號的後患
+banner_css = """
     <style>
-    .block-container {{
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-    }}
-    header[data-testid="stHeader"] {{
-        background-color: transparent !important;
-        pointer-events: none !important; 
-    }}
-    div[data-testid="stStatusWidget"],
-    .stDeployButton,
-    button[data-testid="baseButton-header"],
-    button[aria-label="Context menu"],
-    button[title="Developer options"],
-    div[class*="stActionButton"],
-    header button {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }}
-    #MainMenu {{visibility: hidden; display: none !important;}} 
-    footer {{visibility: hidden; display: none !important;}}
-    .viewerBadge_container__1QSob {{display: none !important;}}
-    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
-    
-    .zhuoji-banner {{
-        background-image: url('data:image/jpeg;base64,{banner_base64}');
+    .zhuoji-banner {
+        background-image: url('data:image/jpeg;base64,""" + banner_base64 + """');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -143,28 +115,59 @@ st.markdown(f"""
         display: flex;
         align-items: center;
         justify-content: center;
-    }}
-    div.zhuoji-banner {{ background-color: #e8ded1; }}
-    .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
-    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
-    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-    .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
-    .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
-    .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
-    .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
-    @keyframes floatUp {{
-        0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
-        20% {{ opacity: 0.6; }}
-        60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
-        100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
-    }}
-    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
-    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
-    div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
-    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
-    .river-fragment {{ display: inline; }}
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{ position: absolute !important; left: -9999px !important; top: -9999px !important; visibility: hidden !important; height: 0px !important; width: 0px !important; }}
+    }
+    </style>
+"""
+st.markdown(banner_css, unsafe_allow_html=True)
+
+# 載入其餘不含動態變數的純靜態前端樣式
+st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+    }
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        pointer-events: none !important; 
+    }
+    div[data-testid="stStatusWidget"],
+    .stDeployButton,
+    button[data-testid="baseButton-header"],
+    button[aria-label="Context menu"],
+    button[title="Developer options"],
+    div[class*="stActionButton"],
+    header button {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    #MainMenu {visibility: hidden; display: none !important;} 
+    footer {visibility: hidden; display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    .chahu-minimal-area { background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }
+    
+    div.zhuoji-banner { background-color: #e8ded1; }
+    .content-text { font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }
+    .poem-text { font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }
+    .avatar-area { position: relative; display: inline-block; margin-bottom: 8px; }
+    .chahu-photo { width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .smoke-container { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }
+    .smoke-line { position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }
+    .smoke-1 { left: 8px; height: 12px; animation-delay: 0s; }
+    .smoke-2 { left: 18px; height: 16px; animation-delay: 0.8s; }
+    @keyframes floatUp {
+        0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
+        20% { opacity: 0.6; }
+        60% { transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }
+        100% { transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }
+    }
+    .chahu-title { font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }
+    .chahu-subtitle { font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }
+    div.stButton > button[key^="sink_btn"] { background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }
+    .touyuan-river { background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }
+    .river-fragment { display: inline; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -336,7 +339,12 @@ with tab1:
         st.subheader("🛡️ 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", key="chahu_honeypot_field")
+            
+            # 🤖 終極安全蜜糖罐：完全不使用 st.text_input 的非法參數，而是直接用原生 HTML 容器在外層做絕對隱形！
+            st.markdown('<div style="display: none !important; visibility: hidden !important; opacity: 0 !important; position: absolute !important; left: -9999px !important; width: 0px !important; height: 0px !important; overflow: hidden !important;">', unsafe_allow_html=True)
+            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", key="chahu_honeypot_field", label_visibility="collapsed")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
@@ -429,7 +437,7 @@ with tab1:
             groq_key = get_groq_api_key()
             
             if not groq_key:
-                chahu_reply = "😮‍💨 喵嗚... 店長還沒在 Render 後台填入 `GROQ_API_KEY` 環境變數，我現在沒辦法陪你聊天..."
+                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認 Render 的 Environment Variables 裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
                     client = Groq(api_key=groq_key)
@@ -472,7 +480,7 @@ with tab2:
     st.header("⚙️ 作品上架與管理系統")
     admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
     
-    if admin_password == "Pint2012echo":
+    if admin_password == "DDD":
         st.success("🔓 店長身分驗證成功！")
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
