@@ -30,7 +30,7 @@ def init_db():
 
 【對話核心神聖指令】：
 1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我標籤。
-2. 當讀者描述任何意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
+2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
 例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
@@ -42,22 +42,19 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🔐 雙重金鑰安全讀取機制 (徹底解決 No secrets found 報錯)
+# 🔐 雙重金鑰安全讀取機制
 # ==========================================
 def get_groq_api_key():
-    # 1. 絕對優先從 Render 環境變數拿，這樣完全不會觸發 Streamlit 的 secrets 報錯機制
     api_key = os.environ.get("GROQ_API_KEY")
     if api_key:
         return api_key
-    
-    # 2. 如果環境變數沒有，才偷偷用 try 讀取本地測試的 secrets
     try:
         return st.secrets.get("GROQ_API_KEY", None)
     except:
         return None
 
 # ==========================================
-# 🐈 優先讀取動態 chahu.gif，若無則讀取靜態 chahu.jpg
+# 🐈 圖片讀取機制
 # ==========================================
 img_base64 = ""
 mime_type = "image/jpeg"
@@ -71,16 +68,13 @@ elif os.path.exists("chahu.jpg"):
         img_base64 = base64.b64encode(image_file.read()).decode()
         mime_type = "image/jpeg"
 
-# ==========================================
-# 🖼️ 讀取店長設計的大招牌 Banner 背景圖 (banner.jpg)
-# ==========================================
 banner_base64 = ""
 if os.path.exists("banner.jpg"):
     with open("banner.jpg", "rb") as banner_file:
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與優化 (已修正 Honeypot 蜜糖罐隱形 bug)
+# 🔒 全局 CSS 視覺注入與優化 (終極隱形修正版)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -165,17 +159,22 @@ st.markdown(f"""
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
     
-    /* 🛡️ 雙重保險：徹底讓機器人蜜糖罐欄位在人類視覺中蒸發 */
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]),
-    div[data-testid="stTextInput"]:has(input[key="chahu_honeypot_field"]) {
+    /* 🛡️ 終極大絕：強制拔除蜜糖罐元件的所有視覺屬性與佔用空間 */
+    [data-testid="stTextInput"]:has(#chahu_honeypot_field),
+    [data-testid="stTextInput"]:has([key="chahu_honeypot_field"]),
+    div[data-testid="stFieldContainer"]:has(#chahu_honeypot_field),
+    .stTextInput:has(#chahu_honeypot_field) {
+        display: none !important;
+        visibility: hidden !important;
         position: absolute !important;
         left: -9999px !important;
         top: -9999px !important;
         width: 0px !important;
         height: 0px !important;
         overflow: hidden !important;
-        visibility: hidden !important;
-        display: none !important;
+        opacity: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -349,8 +348,8 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
-            # 🤖 機器人蜜糖罐：加入 id 與 key 屬性，搭配最上方的 CSS 達成完美隱形
-            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", id="chahu_honeypot_field", key="chahu_honeypot_field")
+            # 🤖 機器人蜜糖罐：升級配置，雙重鎖死隱形
+            bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", id="chahu_honeypot_field", key="chahu_honeypot_field", label_visibility="collapsed")
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
@@ -481,7 +480,7 @@ with tab1:
                     st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（藏書閣）】
+# 【分頁二：管理員後台（藏書閣）
 # ==========================================
 with tab2:
     st.header("⚙️ 作品上架與管理系統")
