@@ -1,7 +1,6 @@
 import streamlit as st
 import sqlite3
 import random
-import re
 
 # ==========================================
 # 0. 🔐 隱形指紋防禦系統（防拷貝與洩漏追蹤）
@@ -21,7 +20,7 @@ def inject_invisible_watermark(text):
     return '\n'.join(watermarked_paragraphs)
 
 # ==========================================
-# 1. 📂 資料庫初始化與核心功能
+# 1. 📂 資料庫初始化
 # ==========================================
 def init_db():
     conn = sqlite3.connect('zhuoji_books.db')
@@ -54,46 +53,60 @@ CHAHU_PROMPT = """
 """
 
 # ==========================================
-# 3. 🎨 網頁佈局與 CSS 樣式優化
+# 3. 🎨 網頁佈局與 CSS 樣式修正
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
+    /* 🔒 全域防選取與複製 */
     body, .stApp {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         user-select: none !important;
     }
+    
+    /* 📖 修正後的散文與小說內文樣式，確保 100 字預覽排版正常 */
     .content-text {
         font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
-        font-size: 1.15rem;
-        line-height: 2.1;
+        font-size: 1.15rem !important;
+        line-height: 2.1 !important;
         letter-spacing: 0.05em;
         color: #2D3748;
         text-align: justify;
-        padding: 20px 10px;
+        padding: 15px 5px;
+        display: block;
         -webkit-user-select: text !important;
         -moz-user-select: text !important;
         -ms-user-select: text !important;
         user-select: text !important;
     }
+    
+    /* 📜 詩集古典排版 */
     .poem-text {
         font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
-        font-size: 1.2rem;
-        line-height: 2.3;
+        font-size: 1.2rem !important;
+        line-height: 2.3 !important;
         letter-spacing: 0.15em;
         color: #2D3748;
         text-align: center;
         margin: 0 auto;
-        padding: 40px 10px;
+        padding: 30px 5px;
         white-space: pre-wrap;
+        display: block;
         -webkit-user-select: text !important;
         -moz-user-select: text !important;
         -ms-user-select: text !important;
         user-select: text !important;
     }
+    
+    /* 調整按鈕大小與間距 */
+    .stButton>button {
+        font-size: 1rem !important;
+        padding: 0.5rem 1rem !important;
+    }
+
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
@@ -113,22 +126,22 @@ if "is_fully_expanded" not in st.session_state:
     st.session_state.is_fully_expanded = False
 
 # ------------------------------------------
-# ⚙️ 後台管理系統 (Tab 2) —— 🔒 包含管理員密碼驗證
+# ⚙️ 後台管理系統 (Tab 2) —— 🔒 密碼驗證鎖
 # ------------------------------------------
 with tab2:
     st.header("⚙️ 書店管理後台")
     
-    # 🔑 管理員登入密碼驗證（預設為 1234，店長可自行修改）
+    # 預設密碼為 1234
     admin_password = st.text_input("🔑 請輸入管理員密碼以開啟管理權限：", type="password", key="admin_pwd_input")
     
     if admin_password == "Pint2012echo":
-        st.success("🔓 認證成功！店長歡迎回來，請開始管理作品。")
+        st.success("🔓 認證成功！管理後台已開啟。")
         st.markdown("---")
         
         conn = sqlite3.connect('zhuoji_books.db')
         c = conn.cursor()
         
-        # A. 新增作品
+        # A. 上架作品
         with st.expander("➕ 上架新作品（支援散文/小說/詩集）"):
             new_title = st.text_input("作品名稱", key="add_title")
             new_cat = st.selectbox("文體分類", ["散文", "小說", "詩集"], key="add_cat")
@@ -140,12 +153,12 @@ with tab2:
                     c.execute("INSERT INTO books (title, category, content, is_poem) VALUES (?, ?, ?, ?)", 
                               (new_title.strip(), new_cat, new_content, is_poem_val))
                     conn.commit()
-                    st.success(f"🎉 《{new_title}》已成功上架至書架！")
+                    st.success(f"🎉 《{new_title}》已成功上架！")
                     st.rerun()
                 else:
                     st.error("請填寫完整名稱與內容！")
 
-        # B. 館藏列表與刪除/修改
+        # B. 館藏清單
         st.subheader("📚 當前館藏清單")
         c.execute("SELECT id, title, category, content, is_poem FROM books")
         all_books = c.fetchall()
@@ -168,7 +181,6 @@ with tab2:
                         st.success(f"已下架 《{bk_title}》")
                         st.rerun()
                 
-                # 展開編輯區
                 if st.session_state.get(f"editing_{bk_id}", False):
                     with st.container():
                         edit_title = st.text_input("修改名稱", value=bk_title, key=f"et_{bk_id}")
@@ -191,7 +203,7 @@ with tab2:
                                 st.rerun()
         conn.close()
     elif admin_password != "":
-        st.error("🔒 密碼錯誤！請重新輸入正确的店長管理密碼。")
+        st.error("🔒 密碼錯誤！請輸入正確的管理員密碼。")
 
 # ------------------------------------------
 # 🍵 雲端書座與茶壺陪讀 (Tab 1)
@@ -199,7 +211,6 @@ with tab2:
 with tab1:
     col_book, col_chahu = st.columns([1.8, 1.2])
     
-    # 【左側：精美閱讀器】
     with col_book:
         st.header("📖 當前閱讀")
         conn = sqlite3.connect('zhuoji_books.db')
@@ -226,7 +237,7 @@ with tab1:
             st.subheader(active_title)
             st.markdown("---")
             
-            # 🛡️ 100 字乾淨文字隨機切片邏輯
+            # 🛡️ 100 字隨機預覽切片計算
             slice_key = f"slice_start_{active_title}"
             if slice_key not in st.session_state and len(active_content) > 100 and not active_is_poem:
                 max_start = len(active_content) - 100
@@ -234,7 +245,7 @@ with tab1:
             elif slice_key not in st.session_state:
                 st.session_state[slice_key] = 0
 
-            # 分別為完整版、預覽版織入隱形防偽指紋
+            # 織入隱形指紋
             protected_full_content = inject_invisible_watermark(active_content)
 
             if len(active_content) > 100 and not active_is_poem:
@@ -244,7 +255,7 @@ with tab1:
             else:
                 protected_preview_content = protected_full_content
             
-            # 渲染呈現
+            # 排版渲染
             if active_is_poem == 1:
                 st.markdown(f'<div class="poem-text">{protected_full_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
@@ -257,9 +268,8 @@ with tab1:
                 else:
                     st.markdown(f'<div class="content-text">{protected_full_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
         else:
-            st.info("目前書架上空空如也。請前往「⚙️ 書店管理後台」輸入密碼並上架您的第一部作品。")
+            st.info("目前書架上空空如也。請前往後台輸入密碼上架您的作品。")
 
-    # 【右側：茶壺 AI 互動對話區】
     with col_chahu:
         st.header("🍵 茶壺的茶水間")
         st.write("*一隻裝滿了故事、墨水與滿腹牢騷的魔幻茶壺。*")
@@ -271,7 +281,7 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
                 
-        if user_chat := st.chat_input("跟茶壺聊聊作品，或是打聽點八卦..."):
+        if user_chat := st.chat_input("跟茶壺聊聊作品..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             with st.chat_message("user"):
                 st.write(user_chat)
