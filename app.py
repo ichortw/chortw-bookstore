@@ -207,6 +207,16 @@ st.markdown(f"""
     .river-fragment {{
         display: inline;
     }}
+    
+    /* 🛡️ 蜜罐陷阱 (Honeypot) 專用隱形術：讓人類肉眼完全看不到此輸入框 */
+    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{
+        position: absolute !important;
+        left: -9999px !important;
+        top: -9999px !important;
+        visibility: hidden !important;
+        height: 0px !important;
+        width: 0px !important;
+    }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -377,23 +387,30 @@ with tab1:
             st.subheader("無作品")
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             
-        st.markdown("---")
+            st.markdown("---")
         st.subheader("🛡️ 投緣牆")
         
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            st.markdown('<div style="display:none;"><input type="text" name="mail_honey" id="mail_honey"></div>', unsafe_allow_html=True)
+            
+            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（與前端 CSS 的 id 完美綁定）
+            bot_trap = st.text_input("🤖 機器人誘餌（人類看不到此欄位，請勿填寫）", key="chahu_honeypot_field")
+            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
-                words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
-                if len(words) > 20:
-                    st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
+                # 🚨 蜜罐防禦觸發：如果誘餌欄位有值，判定為自動化惡意機器人
+                if bot_trap:
+                    st.session_state.touyuan_feedback = "thank you"
                 else:
-                    try:
-                        groq_key = st.secrets["GROQ_API_KEY"]
-                        client = Groq(api_key=groq_key)
-                        eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
+                    words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
+                    if len(words) > 20:
+                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
+                    else:
+                        try:
+                            groq_key = st.secrets["GROQ_API_KEY"]
+                            client = Groq(api_key=groq_key)
+                            eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
@@ -403,21 +420,21 @@ with tab1:
   "passed": true或false,
   "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
 }}"""
-                        response = client.chat.completions.create(
-                            model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
-                        )
-                        res_json = json.loads(response.choices[0].message.content)
-                        st.session_state.touyuan_feedback = res_json["reply"]
-                        
-                        if res_json["passed"]:
-                            conn = sqlite3.connect('zhuoji_books.db')
-                            c = conn.cursor()
-                            c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                            conn.commit()
-                            conn.close()
-                    except:
-                        st.session_state.touyuan_feedback = "thank you"
-                    st.rerun()
+                            response = client.chat.completions.create(
+                                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
+                            )
+                            res_json = json.loads(response.choices[0].message.content)
+                            st.session_state.touyuan_feedback = res_json["reply"]
+                            
+                            if res_json["passed"]:
+                                conn = sqlite3.connect('zhuoji_books.db')
+                                c = conn.cursor()
+                                c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                conn.commit()
+                                conn.close()
+                        except:
+                            st.session_state.touyuan_feedback = "thank you"
+                st.rerun()
 
         if "touyuan_feedback" in st.session_state:
             if "就是你啊" in st.session_state.touyuan_feedback:
