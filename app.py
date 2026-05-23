@@ -9,6 +9,12 @@ from groq import Groq
 import base64
 
 # ==========================================
+# 🔑 店長專屬：在這裡直接焊死你的 Groq API Key
+# ==========================================
+# ⚠️ 請把引號內的 gsk_xxx 替換成你剛剛在 Groq 後台申請到的全新金鑰
+MY_SECURE_GROQ_KEY = "你的完整gsk_xxxxxxxx金鑰填在這裡"
+
+# ==========================================
 # 1. 初始化資料庫 (確保 is_poem 與 stamps 存在)
 # ==========================================
 def init_db():
@@ -282,8 +288,8 @@ verse_key = f"verse_{active_title}"
 if verse_key not in st.session_state:
     if all_books_list and active_title != "無":
         try:
-            groq_key = st.secrets["GROQ_API_KEY"]
-            temp_client = Groq(api_key=groq_key)
+            # 🛠️ 已修正：直接使用焊接金鑰
+            temp_client = Groq(api_key=MY_SECURE_GROQ_KEY)
             verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:300]}"
             completion_verse = temp_client.chat.completions.create(
                 model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": verse_prompt}], temperature=0.8, max_tokens=40
@@ -408,8 +414,8 @@ with tab1:
                         st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                     else:
                         try:
-                            groq_key = st.secrets["GROQ_API_KEY"]
-                            client = Groq(api_key=groq_key)
+                            # 🛠️ 已修正：直接使用焊接金鑰
+                            client = Groq(api_key=MY_SECURE_GROQ_KEY)
                             eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
@@ -484,8 +490,8 @@ with tab1:
                 
             match = None  
             try:
-                groq_key = st.secrets["GROQ_API_KEY"]
-                client = Groq(api_key=groq_key)
+                # 🛠️ 已修正：直接使用焊接金鑰
+                client = Groq(api_key=MY_SECURE_GROQ_KEY)
                 catalog_summary = "\\n".join([f"· 《{b[1]}》 大綱：{b[2][:120]}..." for b in all_books_list])
                 is_slow_warmup = st.session_state.chat_turns <= 2
                 
