@@ -101,7 +101,7 @@ st.components.v1.html("""
         // 動態將 SEO 標籤注入到主網頁的 <head> 當中
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈灵魂金句, 高熵藏書閣, 文青創作";
+        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
 
         var metaDesc = window.parent.document.createElement('meta');
@@ -252,14 +252,30 @@ st.markdown(f"""
         display: inline;
     }}
     
-    /* 🛡️ 蜜罐陷阱 (Honeypot) 專用隱形術：讓人類肉眼完全看不到此輸入框 */
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{
+    /* 🛡️ 蜜罐陷阱 (Honeypot) 絕對物理蒸發術 */
+    /* 建立一個絕對隱形的外層特製鐵囚籠，強制將內容移出渲染螢幕，並使其體積和外距徹底歸零 */
+    .zhuoji-invisible-cage {{
         position: absolute !important;
         left: -9999px !important;
         top: -9999px !important;
-        visibility: hidden !important;
-        height: 0px !important;
         width: 0px !important;
+        height: 0px !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }}
+    /* 強力鎮壓底下的所有隨機 Streamlit 容器，不給它們任何撐開灰色空間的機會 */
+    .zhuoji-invisible-cage div, 
+    .zhuoji-invisible-cage input, 
+    .zhuoji-invisible-cage label {{
+        display: none !important;
+        width: 0px !important;
+        height: 0px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -440,8 +456,10 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
-            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（與前端 CSS 的 id 完美綁定）
+            # 🛡️ 修復核心：將誘餌蜜罐框放入客製化的完全蒸發囚籠區塊中，徹底封殺渲染可能性
+            st.markdown('<div class="zhuoji-invisible-cage">', unsafe_allow_html=True)
             bot_trap = st.text_input("🤖 捕蟲蜜糖樽，請勿填寫", key="chahu_honeypot_field")
+            st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
