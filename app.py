@@ -400,7 +400,7 @@ with tab1:
                     {avatar_html}
                 </div>
                 <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
-                <div class="chahu-subtitle">店長說我是一隻過度活躍的ESFP小貓，但我覺得店長其實自己什麼也不懂，還說人家…</div>
+                <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
             </div>
         """, unsafe_allow_html=True)
         
