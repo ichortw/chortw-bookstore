@@ -47,17 +47,14 @@ init_db()
 def inject_watermark(text):
     if not text:
         return text
-    # 定義兩個肉眼完全看不見的 Unicode 零寬度字元作為我們的「桌記原創密碼」
     ZW_A = "\u200B" # Zero-Width Space
     ZW_B = "\u200C" # Zero-Width Non-Joiner
     
-    # 桌記書店的專屬隱形指紋 (由 A 和 B 組成的特定序列暗號)
     fingerprint = ZW_A + ZW_B + ZW_A + ZW_A + ZW_B
     
     result = []
     for char in text:
         result.append(char)
-        # 為了不讓字串體積暴增，我們有 35% 的機率在字與字之間塞入隱形指紋
         if random.random() < 0.35:
             result.append(fingerprint)
             
@@ -98,7 +95,7 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與防複製防右鍵盾牌 (安全分離，禁絕 f-string 地雷)
+# 🔒 全局 CSS 視覺注入與安全防禦 (已精確修正防複製範圍，恢復後台使用)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -118,9 +115,6 @@ st.components.v1.html("""
         metaAuthor.name = "author";
         metaAuthor.content = "桌記書店店長";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
-        
-        // 🔒 額外防禦 JS 盾牌：停用主視窗的右鍵與選取（雙重保險）
-        window.parent.document.addEventListener('contextmenu', e => e.preventDefault());
     </script>
 """, height=0, width=0)
 
@@ -145,11 +139,11 @@ banner_css = """
 """
 st.markdown(banner_css, unsafe_allow_html=True)
 
-# 載入純靜態前端樣式 + 🔒 CSS 護衛盾牌 (全面禁止複製與選取)
+# 載入純靜態前端樣式 + 🔒 精準 CSS 護衛（只鎖定小說與對話內容，絕不干擾後台與輸入框點擊）
 st.markdown("""
     <style>
-    /* 🛡️ CSS Guard: 全局全面禁止反白、選取與複製文字 */
-    body, .stApp, .content-text, .poem-text, p, span, div, h1, h2, h3 {
+    /* 🛡️ 精準 CSS Guard: 僅禁止小說本文、詩集與靈魂金句的反白與選取，釋放全局控制權 */
+    .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
@@ -338,14 +332,12 @@ with tab1:
             
             preview_length = 200
             if active_is_poem == 1:
-                # 🛡️ 注入隱形浮水印保護詩集內容
                 protected_poem = inject_watermark(active_content)
                 st.markdown(f'<div class="poem-text">{protected_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
                     preview_text = active_content[platform_start:platform_start+preview_length]
-                    # 🛡️ 注入隱形浮水印保護散文預覽內容
                     protected_preview = inject_watermark(preview_text)
                     st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
                     
@@ -353,7 +345,6 @@ with tab1:
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
-                    # 🛡️ 注入隱形浮水印保護散文全文內容
                     protected_full = inject_watermark(active_content)
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
                     
