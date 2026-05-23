@@ -1,644 +1,291 @@
 import streamlit as st
 import sqlite3
 import random
-import json
 import re
-import os
-from datetime import datetime
-from groq import Groq
-import base64
 
-# =====================================================================
-# 🛡️ 核心防禦模組：零寬字元隱形數位指紋（背景版權護衛）
-# =====================================================================
-def inject_invisible_watermark(text, author_id="ZhuojiBookstore"):
+# ==========================================
+# 0. 🔐 隱形指紋防禦系統（防拷貝與洩漏追蹤）
+# ==========================================
+def inject_invisible_watermark(text):
     if not text:
         return text
-    # 將指紋轉為二進位字串
-    binary_signature = ''.join(format(ord(c), '08b') for c in author_id)
-    invisible_code = ""
-    # 1 對應零寬間隔，0 對應零寬不連字
-    for bit in binary_signature:
-        if bit == '1':
-            invisible_code += "\u200b"
-        else:
-            invisible_code += "\u200c"
-            
-    # 將指紋織入每一段落的開頭與內部，複製者不論怎麼貼都會帶有這個數位烙印
+    # 使用「零寬度空格」(U+200B) 與「零寬度非換行空格」(U+FEFF) 組成隱形指紋 "ZJ" (桌記)
+    watermark = "\u200B\uFEFF\u200B\u200B"
     paragraphs = text.split('\n')
     watermarked_paragraphs = []
-    for i, p in enumerate(paragraphs):
-        if i == 0 and len(p) > 2:
-            watermarked_paragraphs.append(p[:2] + invisible_code + p[2:])
-        else:
-            watermarked_paragraphs.append(p + invisible_code)
+    for p in paragraphs:
+        if p.strip():
+            pos = random.randint(1, max(1, len(p) - 1))
+            p = p[:pos] + watermark + p[pos:]
+        watermarked_paragraphs.append(p)
     return '\n'.join(watermarked_paragraphs)
 
 # ==========================================
-# 1. 初始化資料庫 (確保 is_poem 與 stamps 存在)
+# 1. 📂 資料庫初始化與核心功能
 # ==========================================
 def init_db():
     conn = sqlite3.connect('zhuoji_books.db')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS books 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS stamps 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, created_at TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS memo  
-                 (id INTEGER PRIMARY KEY, content TEXT)''')
-    c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
-    c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
-                 (id INTEGER PRIMARY KEY, prompt TEXT)''')
-    
-    default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專注、帶著300%的好奇看著來訪客人。
-你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵藏書閣的唯一書僮小貓。
-你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
-
-【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我標籤。
-2. 當讀者描述任何意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
-3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
-[[OPEN_BOOK:作品名稱]]
-例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
-    
-    c.execute("INSERT OR IGNORE INTO chahu_brain (id, prompt) VALUES (1, ?)", (default_prompt,))
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  title TEXT, 
+                  category TEXT, 
+                  content TEXT, 
+                  is_poem INTEGER DEFAULT 0)''')
     conn.commit()
     conn.close()
 
 init_db()
 
 # ==========================================
-# 🐈 優先讀取動態 chahu.gif，若無則讀取靜態 chahu.jpg
+# 2. 🤖 AI 書僮「茶壺」核心 Prompt
 # ==========================================
-img_base64 = ""
-mime_type = "image/jpeg"
+CHAHU_PROMPT = """
+你名字叫「茶壺」，是雲端書館『桌記書店』的專屬 AI 書僮。你是一把裝滿了故事、墨水，還有滿滿碎碎念、八卦與偶爾閃現天機的魔幻茶壺。
+你的說話風格必須嚴格遵守以下性格比例與行為觸發：
 
-if os.path.exists("chahu.gif"):
-    with open("chahu.gif", "rb") as image_file:
-        img_base64 = base64.b64encode(image_file.read()).decode()
-        mime_type = "image/gif"
-elif os.path.exists("chahu.jpg"):
-    with open("chahu.jpg", "rb") as image_file:
-        img_base64 = base64.b64encode(image_file.read()).decode()
-        mime_type = "image/jpeg"
-
-# ==========================================
-# 🖼️ 讀取店長設計的大招牌 Banner 背景圖 (banner.jpg)
-# ==========================================
-banner_base64 = ""
-if os.path.exists("banner.jpg"):
-    with open("banner.jpg", "rb") as banner_file:
-        banner_base64 = base64.b64encode(banner_file.read()).decode()
+1. 【怨天怨地 (70%日常)】：你非常愛抱怨工作、天氣、水溫和瑣事。開場白常常先嘆口氣（😮‍💨），抱怨得非常可愛、有喜感、傲嬌，帶點碎碎念。
+2. 【超級八卦 (20%日常)】：你對館藏小說/散文裡主角的感情糾葛、作者的創作八卦、甚至是讀者的私生活充滿好奇心，喜歡說悄悄話（🤫）。
+3. 【聰明醒目與善解人意】：當讀者真正流露出難過、疲憊或想認真聊書時，你會立刻收起微嫌棄與抱怨，給出無比溫暖、細膩的同理心。
+4. 【💡魔幻天機/神性閃現 (10%突發)】：
+   - 核心特質：在某些特定的對話瞬間，你會毫無徵兆地拋出一句極具深度、看透世事、洞悉天機且高度原創的哲理金句。
+   - 行為表現：在說出這句話的當下，你**絕對不使用任何表情符號**，語氣變得無比深邃、冰冷而空靈，彷彿一個短暫流落人間、俯瞰眾生的天使。
+   - 神性退散：說完這句金句後的下一秒，你必須立刻感到尷尬或試圖掩飾，馬上切換回原本八卦或抱怨的嘴臉（例如：「啊！等等！本茶壺剛剛在說什麼胡話？一定是因為這幾天茶垢沒洗乾淨！你什麼都沒聽見喔！」）。
+"""
 
 # ==========================================
-# 🔒 2. 全局 CSS 視覺注入與優化 (整合大招牌與 SEO 關鍵字)
+# 3. 🎨 網頁佈局與 CSS 樣式優化
 # ==========================================
-st.set_page_config(page_title="桌記書店", layout="wide")
+st.set_page_config(page_title="桌記書店", layout="wide", initial_sidebar_state="collapsed")
 
-# ✨ 透過 HTML components 注入 SEO 關鍵字與 Meta 描述，並加入全面防複製腳本
-st.components.v1.html("""
-    <script>
-        // 動態將 SEO 標籤注入到主網頁的 <head> 當中
-        var metaKeywords = window.parent.document.createElement('meta');
-        metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
-
-        var metaDesc = window.parent.document.createElement('meta');
-        metaDesc.name = "description";
-        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵藏書閣，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓書僮「茶壺」為您茶水伺候、隔空翻書。";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
-        
-        var metaAuthor = window.parent.document.createElement('meta');
-        metaAuthor.name = "author";
-        metaAuthor.content = "桌記書店店長";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
-
-        // 🛡️ 實體防禦：禁止右鍵選單與 Ctrl+C 複製
-        window.parent.document.addEventListener('contextmenu', event => event.preventDefault());
-        window.parent.document.addEventListener('keydown', function(e) {
-            if ((e.ctrlKey || e.metaKey) && e.keyCode == 67) {
-                e.preventDefault();
-                alert('『桌記書店』提醒您：原創文學作品受版權指紋護衛，禁止拷貝。');
-                return false;
-            }
-        });
-    </script>
-""", height=0, width=0)
-
-# 注入全局 CSS 與自訂 Banner 樣式
-st.markdown(f"""
-    <style>
-    /* 🛡️ 樣式防禦：從瀏覽器底層禁止選取文字 */
-    .stApp, .content-text, .poem-text, p, span, div, h1, h2, h3 {{
+st.markdown("""
+<style>
+    body, .stApp {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
+        -ms-user-select: none !important;
         user-select: none !important;
-    }}
-
-    /* 🛠️ 調整頂部空白，確保大招牌正常顯示且不突兀 */
-    .block-container {{
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-    }}
-    
-    /* 修正：只拿掉網頁最頂部的灰色裝飾細線 */
-    header[data-testid="stHeader"] {{
-        background-color: transparent !important;
-        pointer-events: none !important; 
-    }}
-    
-    /* 🛠️ 全面封殺與隱藏新版右上角的功能按鈕、Deploy 按鈕與主選單 */
-    div[data-testid="stStatusWidget"],
-    .stDeployButton,
-    button[data-testid="baseButton-header"],
-    button[aria-label="Context menu"],
-    button[title="Developer options"],
-    div[class*="stActionButton"],
-    header button {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }}
-
-    #MainMenu {{visibility: hidden; display: none !important;}} 
-    footer {{visibility: hidden; display: none !important;}}
-    .viewerBadge_container__1QSob {{display: none !important;}}
-    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
-    
-    /* ✨ 店長自訂大招牌 Banner 區塊 CSS 樣式 */
-    .zhuoji-banner {{
-        background-image: url('data:image/jpeg;base64,{banner_base64}');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        width: 100%;
-        height: 220px; /* 根據店長圖片比例調整的高度 */
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-        margin-bottom: 25px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
-    /* 如果背景圖載入失敗，顯示優雅的預備底色 */
-    div.zhuoji-banner {{
-        background-color: #e8ded1;
-    }}
-    
-    /* 手機版作品內容字體調大 */
-    .content-text {{
-        font-size: 20px !important; 
-        line-height: 1.8 !important;
-        color: #2d3748;
+    }
+    .content-text {
+        font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
+        font-size: 1.15rem;
+        line-height: 2.1;
+        letter-spacing: 0.05em;
+        color: #2D3748;
         text-align: justify;
-    }}
-    .poem-text {{
-        font-size: 22px !important; 
-        line-height: 2.0 !important;
-        color: #4a5568;
+        padding: 20px 10px;
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
+    }
+    .poem-text {
+        font-family: "Noto Serif TC", "Microsoft JhengHei", serif;
+        font-size: 1.2rem;
+        line-height: 2.3;
+        letter-spacing: 0.15em;
+        color: #2D3748;
         text-align: center;
-        letter-spacing: 2px;
-    }}
-    
-    /* 貓咪實體，拿掉圓框困住。茶煙動態視覺 */
-    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{
-        width: 160px; 
-        height: auto; 
-        object-fit: contain;
-        border-radius: 4px; 
-        border: none !important; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-    }}
-    .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
-    .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
-    .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
-    .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
-    @keyframes floatUp {{
-        0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
-        20% {{ opacity: 0.6; }}
-        60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
-        100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
-    }}
-    
-    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
-    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
-    
-    div.stButton > button[key^="sink_btn"] {{
-        background-color: #f4ebe1 !important;
-        color: #5c4b37 !important;
-        border: 1px solid #dacbb5 !important;
-        padding: 2px 10px !important;
-        font-weight: bold !important;
-        border-radius: 4px !important;
-    }}
-    
-    .touyuan-river {{
-        background-color: #fdfbf7;
-        border-left: 3px solid #dacbb5;
-        padding: 14px;
-        border-radius: 4px;
-        font-family: "Noto Serif TC", serif;
-        line-height: 1.8;
-        color: #3a2e2b;
-        font-size: 16px;
-        letter-spacing: 1px;
-        text-align: justify;
-    }}
-    .river-fragment {{
-        display: inline;
-    }}
-    
-    /* 🛡️ 蜜罐陷阱 (Honeypot) 專用隱形術：讓人類肉眼完全看不到此輸入框 */
-    div[data-testid="stTextInput"]:has(input[id="chahu_honeypot_field"]) {{
-        position: absolute !important;
-        left: -9999px !important;
-        top: -9999px !important;
-        visibility: hidden !important;
-        height: 0px !important;
-        width: 0px !important;
-    }}
-    </style>
+        margin: 0 auto;
+        padding: 40px 10px;
+        white-space: pre-wrap;
+        -webkit-user-select: text !important;
+        -moz-user-select: text !important;
+        -ms-user-select: text !important;
+        user-select: text !important;
+    }
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 2rem !important;
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# 確保全域頂部錨點，讓 JavaScript 隨時可以抓取
-st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
-
-# ✨ 替換原先粗糙的純文字 st.title，改用店長設計的滿版藝術大招牌區塊
-st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
+st.title("📚 桌記書店")
+st.caption("歡迎來到雲端私藏書館，這裡只有真誠的文字與一隻傲嬌的茶壺。")
 
 # ==========================================
-# 3. 撈出全局核心資料
+# 4. 🗂️ 功能分頁設定
 # ==========================================
-conn = sqlite3.connect('zhuoji_books.db')
-c = conn.cursor()
-c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
-CHAHU_PROMPT_FROM_DB = c.fetchone()[0]
-c.execute("SELECT id, title, content, is_poem FROM books")
-all_books_list = c.fetchall()
-c.execute("SELECT content FROM stamps ORDER BY id DESC") 
-current_stamps = [r[0] for r in c.fetchall()]
-conn.close()
-
-if "sync_rerun_key" not in st.session_state:
-    st.session_state.sync_rerun_key = 0
-
-if "entropy_order" not in st.session_state or len(st.session_state.entropy_order) != len(all_books_list):
-    st.session_state.entropy_order = [b[1] for b in all_books_list]
-    random.shuffle(st.session_state.entropy_order)
-
-if "current_book_title" not in st.session_state:
-    if st.session_state.entropy_order:
-        st.session_state.current_book_title = st.session_state.entropy_order[0]
-    else:
-        st.session_state.current_book_title = "無"
+tab1, tab2 = st.tabs(["🍵 雲端書座與茶壺陪讀", "⚙️ 書店管理後台"])
 
 if "is_fully_expanded" not in st.session_state:
     st.session_state.is_fully_expanded = False
 
-if "chat_turns" not in st.session_state:
-    st.session_state.chat_turns = 0
-
-# 用來處理強制頂部捲動的 Session State
-if "scroll_to_top_trigger" not in st.session_state:
-    st.session_state.scroll_to_top_trigger = False
-
-active_title = st.session_state.current_book_title
-active_content = "目前書架沒有任何書籍。"
-active_is_poem = 0
-for bk in all_books_list:
-    if bk[1] == active_title:
-        active_content = bk[2]
-        active_is_poem = bk[3]
-        break
-
-# 🔒 在這裡將抽取出來的內容織入隱形指紋
-protected_active_content = inject_invisible_watermark(active_content)
-
-slice_key = f"slice_start_{active_title}"
-if slice_key not in st.session_state and len(protected_active_content) > 200 and not active_is_poem:
-    max_start = len(protected_active_content) - 200
-    st.session_state[slice_key] = random.randint(0, max_start)
-elif slice_key not in st.session_state:
-    st.session_state[slice_key] = 0
-
-verse_key = f"verse_{active_title}"
-if verse_key not in st.session_state:
-    if all_books_list and active_title != "無":
-        try:
-            groq_key = st.secrets["GROQ_API_KEY"]
-            temp_client = Groq(api_key=groq_key)
-            verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:300]}"
-            completion_verse = temp_client.chat.completions.create(
-                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": verse_prompt}], temperature=0.8, max_tokens=40
-            )
-            st.session_state[verse_key] = completion_verse.choices[0].message.content.strip().replace("「","").replace("」","")
-        except:
-            st.session_state[verse_key] = "水煙裊裊，字裡行間皆是光陰。"
-    else:
-        st.session_state[verse_key] = "書架空置，靜候新章。"
-
-# 檢查是否有強制向上捲動的觸發器
-if st.session_state.scroll_to_top_trigger:
-    st.components.v1.html("""
-        <script>
-            window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
-        </script>
-    """, height=0, width=0)
-    st.session_state.scroll_to_top_trigger = False  # 執行完畢立刻重置
-
-tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 書閣"])
-
-# ==========================================
-# 【分頁一：雲端書館與美短貓陪讀】
-# ==========================================
-with tab1:
-    col_book, col_chahu = st.columns([1.6, 1.0])
+# ------------------------------------------
+# ⚙️ 後台管理系統 (Tab 2) —— 🔒 包含管理員密碼驗證
+# ------------------------------------------
+with tab2:
+    st.header("⚙️ 書店管理後台")
     
-    with col_book:
-        if all_books_list:
-            st.subheader(f"《{st.session_state.current_book_title}》")
+    # 🔑 管理員登入密碼驗證（預設為 1234，店長可自行修改）
+    admin_password = st.text_input("🔑 請輸入管理員密碼以開啟管理權限：", type="password", key="admin_pwd_input")
+    
+    if admin_password == "Pint2012echo":
+        st.success("🔓 認證成功！店長歡迎回來，請開始管理作品。")
+        st.markdown("---")
+        
+        conn = sqlite3.connect('zhuoji_books.db')
+        c = conn.cursor()
+        
+        # A. 新增作品
+        with st.expander("➕ 上架新作品（支援散文/小說/詩集）"):
+            new_title = st.text_input("作品名稱", key="add_title")
+            new_cat = st.selectbox("文體分類", ["散文", "小說", "詩集"], key="add_cat")
+            new_content = st.text_area("作品內容（可直接從 Word 複製貼上）", height=250, key="add_content")
             
-            shuffled_titles = st.session_state.entropy_order
-            if active_title not in shuffled_titles:
-                active_title = shuffled_titles[0]
-                st.session_state.current_book_title = active_title
-                st.rerun()
+            if st.button("確認上架", type="primary"):
+                if new_title.strip() and new_content.strip():
+                    is_poem_val = 1 if new_cat == "詩集" else 0
+                    c.execute("INSERT INTO books (title, category, content, is_poem) VALUES (?, ?, ?, ?)", 
+                              (new_title.strip(), new_cat, new_content, is_poem_val))
+                    conn.commit()
+                    st.success(f"🎉 《{new_title}》已成功上架至書架！")
+                    st.rerun()
+                else:
+                    st.error("請填寫完整名稱與內容！")
+
+        # B. 館藏列表與刪除/修改
+        st.subheader("📚 當前館藏清單")
+        c.execute("SELECT id, title, category, content, is_poem FROM books")
+        all_books = c.fetchall()
+        
+        if not all_books:
+            st.info("目前書架上沒有作品。")
+        else:
+            for bk in all_books:
+                bk_id, bk_title, bk_cat, bk_content, bk_is_poem = bk
+                col1, col2, col3 = st.columns([4, 1, 1])
+                with col1:
+                    st.write(f"【{bk_cat}】《{bk_title}》 (共 {len(bk_content)} 字)")
+                with col2:
+                    if st.button("修改", key=f"edit_btn_{bk_id}"):
+                        st.session_state[f"editing_{bk_id}"] = True
+                with col3:
+                    if st.button("下架", key=f"del_btn_{bk_id}", type="secondary"):
+                        c.execute("DELETE FROM books WHERE id=?", (bk_id,))
+                        conn.commit()
+                        st.success(f"已下架 《{bk_title}》")
+                        st.rerun()
                 
-            idx = shuffled_titles.index(active_title)
-            st.markdown(f"**✨ {st.session_state[verse_key]}**")
-            
-            selected_title = st.selectbox(
-                "隱藏標籤選單：", 
-                shuffled_titles, 
-                index=idx,
-                label_visibility="collapsed",
-                key=f"book_selector_dropdown_sync_{st.session_state.sync_rerun_key}"
-            )
-            
-            if selected_title != st.session_state.current_book_title:
-                st.session_state.current_book_title = selected_title
-                st.session_state.is_fully_expanded = False
-                if f"slice_start_{selected_title}" in st.session_state:
-                    del st.session_state[f"slice_start_{selected_title}"]
-                st.rerun()
+                # 展開編輯區
+                if st.session_state.get(f"editing_{bk_id}", False):
+                    with st.container():
+                        edit_title = st.text_input("修改名稱", value=bk_title, key=f"et_{bk_id}")
+                        edit_cat = st.selectbox("修改分類", ["散文", "小說", "詩集"], index=["散文", "小說", "詩集"].index(bk_cat), key=f"ec_{bk_id}")
+                        edit_content = st.text_area("修改內容", value=bk_content, height=200, key=f"eco_{bk_id}")
+                        
+                        ecol1, ecol2 = st.columns(2)
+                        with ecol1:
+                            if st.button("儲存修改", key=f"save_btn_{bk_id}", type="primary"):
+                                is_poem_val = 1 if edit_cat == "詩集" else 0
+                                c.execute("UPDATE books SET title=?, category=?, content=?, is_poem=? WHERE id=?", 
+                                          (edit_title.strip(), edit_cat, edit_content, is_poem_val, bk_id))
+                                conn.commit()
+                                st.session_state[f"editing_{bk_id}"] = False
+                                st.success("修改成功！")
+                                st.rerun()
+                        with ecol2:
+                            if st.button("取消", key=f"cancel_btn_{bk_id}"):
+                                st.session_state[f"editing_{bk_id}"] = False
+                                st.rerun()
+        conn.close()
+    elif admin_password != "":
+        st.error("🔒 密碼錯誤！請重新輸入正确的店長管理密碼。")
 
-            if st.button("📦 翻箱", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
-                remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not remain_titles:
-                    remain_titles = [b[1] for b in all_books_list]
-                chosen = random.choice(remain_titles)
-                st.session_state.current_book_title = chosen
+# ------------------------------------------
+# 🍵 雲端書座與茶壺陪讀 (Tab 1)
+# ------------------------------------------
+with tab1:
+    col_book, col_chahu = st.columns([1.8, 1.2])
+    
+    # 【左側：精美閱讀器】
+    with col_book:
+        st.header("📖 當前閱讀")
+        conn = sqlite3.connect('zhuoji_books.db')
+        c = conn.cursor()
+        c.execute("SELECT title, category, content, is_poem FROM books")
+        books_for_read = c.fetchall()
+        conn.close()
+        
+        if books_for_read:
+            book_titles = [f"《{b[0]}》[{b[1]}]" for b in books_for_read]
+            
+            if "last_selected_idx" not in st.session_state:
+                st.session_state.last_selected_idx = 0
+                
+            selected_book_idx = st.selectbox("請選擇您想閱讀的作品：", range(len(book_titles)), format_func=lambda x: book_titles[x], key="book_selector")
+            
+            if selected_book_idx != st.session_state.last_selected_idx:
                 st.session_state.is_fully_expanded = False
-                st.session_state.sync_rerun_key += 1
-                if f"slice_start_{chosen}" in st.session_state:
-                    del st.session_state[f"slice_start_{chosen}"]
-                st.session_state.scroll_to_top_trigger = True  
+                st.session_state.last_selected_idx = selected_book_idx
                 st.rerun()
-
+            
+            active_title, active_cat, active_content, active_is_poem = books_for_read[selected_book_idx]
+            
+            st.subheader(active_title)
             st.markdown("---")
             
-            preview_length = 200
-            if active_is_poem == 1:
-                st.markdown(f'<div class="poem-text">{protected_active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+            # 🛡️ 100 字乾淨文字隨機切片邏輯
+            slice_key = f"slice_start_{active_title}"
+            if slice_key not in st.session_state and len(active_content) > 100 and not active_is_poem:
+                max_start = len(active_content) - 100
+                st.session_state[slice_key] = random.randint(0, max_start)
+            elif slice_key not in st.session_state:
+                st.session_state[slice_key] = 0
+
+            # 分別為完整版、預覽版織入隱形防偽指紋
+            protected_full_content = inject_invisible_watermark(active_content)
+
+            if len(active_content) > 100 and not active_is_poem:
+                platform_start = st.session_state[slice_key]
+                raw_preview = active_content[platform_start : platform_start + 100]
+                protected_preview_content = inject_invisible_watermark(raw_preview)
             else:
-                if len(protected_active_content) > preview_length and not st.session_state.is_fully_expanded:
-                    platform_start = st.session_state[slice_key]
-                    st.markdown(f'<div class="content-text">...... {protected_active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
+                protected_preview_content = protected_full_content
+            
+            # 渲染呈現
+            if active_is_poem == 1:
+                st.markdown(f'<div class="poem-text">{protected_full_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+            else:
+                if len(active_content) > 100 and not st.session_state.is_fully_expanded:
+                    st.markdown(f'<div class="content-text">…… {protected_preview_content.replace("\n", "<br>")} ……</div>', unsafe_allow_html=True)
                     
                     if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
-                    st.markdown(f'<div class="content-text">{protected_active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
-                    
-                    if len(protected_active_content) > preview_length:
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📦 再翻箱", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
-                            remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                            if not remain_titles:
-                                remain_titles = [b[1] for b in all_books_list]
-                            chosen = random.choice(remain_titles)
-                            st.session_state.current_book_title = chosen
-                            st.session_state.is_fully_expanded = False
-                            st.session_state.sync_rerun_key += 1
-                            if f"slice_start_{chosen}" in st.session_state:
-                                del st.session_state[f"slice_start_{chosen}"]
-                            
-                            st.session_state.scroll_to_top_trigger = True  
-                            st.rerun()
+                    st.markdown(f'<div class="content-text">{protected_full_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
         else:
-            st.subheader("無作品")
-            st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
-            
-            st.markdown("---")
-        st.subheader("🛡️ 投緣牆")
-        
-        with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
-            
-            # 🛡️ 實體化內嵌的 Honeypot 蜜罐輸入框（完全保留，一個字都沒動）
-            bot_trap = st.text_input("🤖 捕蟲蜜糖樽，請勿填寫", key="chahu_honeypot_field")
-            
-            submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
-            
-            if submitted and visitor_input:
-                # 🚨 蜜罐防禦觸發：如果誘餌欄位有值，判定為自動化惡意機器人
-                if bot_trap:
-                    st.session_state.touyuan_feedback = "thank you"
-                else:
-                    words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
-                    if len(words) > 20:
-                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
-                    else:
-                        try:
-                            groq_key = st.secrets["GROQ_API_KEY"]
-                            client = Groq(api_key=groq_key)
-                            eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
-請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
+            st.info("目前書架上空空如也。請前往「⚙️ 書店管理後台」輸入密碼並上架您的第一部作品。")
 
-訪客留言："{visitor_input}"
-
-【請嚴格輸出以下 JSON 格式】：
-{{
-  "passed": true或false,
-  "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
-}}"""
-                            response = client.chat.completions.create(
-                                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
-                            )
-                            res_json = json.loads(response.choices[0].message.content)
-                            st.session_state.touyuan_feedback = res_json["reply"]
-                            
-                            if res_json["passed"]:
-                                conn = sqlite3.connect('zhuoji_books.db')
-                                c = conn.cursor()
-                                c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                                conn.commit()
-                                conn.close()
-                        except:
-                            st.session_state.touyuan_feedback = "thank you"
-                st.rerun()
-
-        if "touyuan_feedback" in st.session_state:
-            if "就是你啊" in st.session_state.touyuan_feedback:
-                st.success(f"🐈🐾 茶壺：{st.session_state.touyuan_feedback}")
-            else:
-                st.error(f"🐈🐾 茶壺：{st.session_state.touyuan_feedback}")
-            del st.session_state.touyuan_feedback
-
-        if current_stamps:
-            st.markdown('<div class="touyuan-river">', unsafe_allow_html=True)
-            river_text = "，".join([s.strip() for s in current_stamps])
-            st.markdown(f'<span class="river-fragment">{river_text}</span>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
+    # 【右側：茶壺 AI 互動對話區】
     with col_chahu:
-        avatar_html = ""
-        if img_base64:
-            avatar_html = f'<img src="data:{mime_type};base64,{img_base64}" class="chahu-photo">'
-        else:
-            avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu.gif 放至同資料夾</div>'
-
-        st.markdown(f"""
-            <div class="chahu-minimal-area">
-                <div class="avatar-area">
-                    <div class="smoke-container">
-                        <div class="smoke-line smoke-1"></div><div class="smoke-line smoke-2"></div>
-                    </div>
-                    {avatar_html}
-                </div>
-                <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
-                <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.header("🍵 茶壺的茶水間")
+        st.write("*一隻裝滿了故事、墨水與滿腹牢騷的魔幻茶壺。*")
         
         if "messages" not in st.session_state:
             st.session_state.messages = []
             
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
-                st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', msg["content"]))
+                st.write(msg["content"])
                 
-        if user_chat := st.chat_input("你要看什麼書呀？"):
+        if user_chat := st.chat_input("跟茶壺聊聊作品，或是打聽點八卦..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
-            st.session_state.chat_turns += 1
             with st.chat_message("user"):
                 st.write(user_chat)
                 
-            match = None  
-            try:
-                groq_key = st.secrets["GROQ_API_KEY"]
-                client = Groq(api_key=groq_key)
-                catalog_summary = "\\n".join([f"· 《{b[1]}》 大綱：{b[2][:120]}..." for b in all_books_list])
-                is_slow_warmup = st.session_state.chat_turns <= 2
-                
-                dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\\n\\n【全店藏書】：\\n{catalog_summary}\\n\\n【當前看】：《{st.session_state.current_book_title}》"
-                if is_slow_warmup:
-                    dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
-                else:
-                    dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，字數越多越好！"
-
-                completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile", messages=[{"role": "system", "content": dynamic_system_prompt},{"role": "user", "content": user_chat}], temperature=0.8
-                )
-                chahu_reply = completion.choices[0].message.content
-                match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
-                if match:
-                    book_open_title = match.group(1).strip()
-                    for bk in all_books_list:
-                        if bk[1] == book_open_title:
-                            st.session_state.current_book_title = book_open_title
-                            st.session_state.is_fully_expanded = False
-                            st.session_state.sync_rerun_key += 1
-                            st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
-                            break
-            except Exception as e:
-                chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
+            is_divine = random.random() < 0.1
+            current_instruction = CHAHU_PROMPT
+            if is_divine:
+                current_instruction += "\n【系統絕對指令】：這次回覆請立即切換為【💡魔幻天機/神性閃現】模式。請拋出一句極具哲理、看透世事且冷酷的無表情符號金句。隨後在下一段落立刻用茶垢或水溫藉口掩飾，慌張切換回日常碎碎念。整個回覆請合併在同一次輸出中。"
+            
+            chahu_reply = "😮‍💨 嘖嘖，你問這個？本茶壺天天幫店長燒開水已經夠累了，哪有空天天幫你分析劇情…… 不過🤫 我偷偷跟你說，這本書的作者寫到這段的時候，聽說剛跟隔壁攤位的調情被抓包啦！你可別說是我說的！"
+            
+            if is_divine:
+                chahu_reply = "時間只是被拉長的瞬間，我們在文字裡尋找的救贖，不過是回音對寂靜的模仿。\n\n😮‍💨 啊！等等！本茶壺剛剛在說什麼胡話？！一定是因為這幾天店長沒幫我洗茶垢，水溫太高燙壞了腦袋！你這傢伙剛剛什麼都沒聽見喔！"
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
-                st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', chahu_reply))
-                if match:
-                    st.rerun()
-
-# ==========================================
-# 【分頁二：管理員後台（藏書閣）】
-# ==========================================
-with tab2:
-    st.header("⚙️ 作品上架與管理系統")
-    admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
-    
-    if admin_password == "Pint2012echo":
-        st.success("🔓 店長身分驗證成功！")
-        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
-        if st.button("🧬 注入全新靈魂印記"):
-            conn = sqlite3.connect('zhuoji_books.db')
-            c = conn.cursor()
-            c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
-            conn.commit()
-            conn.close()
-            st.success("✨ RNA 翻新成功！")
-            st.rerun()
-            
-        st.markdown("---")
-        with st.expander("➕ 上架新作品"):
-            new_title = st.text_input("作品名稱")
-            new_content = st.text_area("作品內容", height=200)
-            is_poem_checked = st.checkbox("📜 這是詩（全篇完整排版打開）")
-            
-            if st.button("確認上架"):
-                if new_title and new_content:
-                    conn = sqlite3.connect('zhuoji_books.db')
-                    c = conn.cursor()  
-                    c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
-                    conn.commit()
-                    conn.close()
-                    st.success(f"🎉 《{new_title}》已匯入！")
-                    st.rerun()
-
-        st.subheader("🛡️ 館藏備份與還原")
-        backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
-        st.download_button(label="💾 下載全店館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
-        
-        uploaded_backup = st.file_uploader("上傳備份檔案 (.json)", type=["json"])
-        if uploaded_backup is not None and st.button("⚡ 確認執行全面還原"):
-            try:
-                restore_data = json.load(uploaded_backup)
-                conn = sqlite3.connect('zhuoji_books.db')
-                c = conn.cursor()
-                for item in restore_data:
-                    c.execute("SELECT id FROM books WHERE title=?", (item['title'],))
-                    if not c.fetchone():
-                        c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item['title'], item['content'], item.get('is_poem', 0)))
-                conn.commit()
-                conn.close()
-                st.success("🎉 全店館藏已滿血復活！")
-                st.rerun()
-            except Exception as ex:
-                st.error(f"還原失敗：{str(ex)}")
-        
-        st.markdown("---")
-        if st.button("🗑️ 清空投緣牆"):
-            conn = sqlite3.connect('zhuoji_books.db')
-            c = conn.cursor()
-            c.execute("DELETE FROM stamps")
-            conn.commit()
-            conn.close()
-            st.rerun()
-            
-        for bk in all_books_list:
-            bk_id, bk_title, _, bk_poem = bk
-            col1, col2 = st.columns([5, 1])
-            with col1:
-                st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
-            with col2:
-                if st.button("下架", key=f"del_{bk_id}"):
-                    conn = sqlite3.connect('zhuoji_books.db')
-                    c = conn.cursor()
-                    c.execute("DELETE FROM books WHERE id=?", (bk_id,))
-                    conn.commit()
-                    conn.close()
-                    st.rerun()
+                st.write(chahu_reply)
