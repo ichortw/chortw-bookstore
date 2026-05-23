@@ -334,9 +334,9 @@ with tab1:
         st.subheader("🛡️ 投緣牆")
         
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，不要多過20字，投進來，她會幫你貼上投緣牆，來吧！", max_chars=100)
+            visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             st.markdown('<div style="display:none;"><input type="text" name="mail_honey" id="mail_honey"></div>', unsafe_allow_html=True)
-            submitted = st.form_submit_button("✨ 投緣", help="投吧")
+            submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
                 words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
