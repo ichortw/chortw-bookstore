@@ -42,16 +42,20 @@ def init_db():
 init_db()
 
 # ==========================================
-# 🔐 雙重金鑰安全讀取機制
+# 🔐 雙重金鑰安全讀取機制 (相容 Render 環境變數與 secrets)
 # ==========================================
 def get_groq_api_key():
+    # 優先從系統環境變數讀取 (Render Environment Variables)
     api_key = os.environ.get("GROQ_API_KEY")
     if api_key:
         return api_key
+    # 次要從 Streamlit Secrets 讀取
     try:
-        return st.secrets.get("GROQ_API_KEY", None)
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
     except:
-        return None
+        pass
+    return None
 
 # ==========================================
 # 🐈 圖片讀取機制
@@ -74,7 +78,7 @@ if os.path.exists("banner.jpg"):
         banner_base64 = base64.b64encode(banner_file.read()).decode()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與優化 (全面採用格式化防護)
+# 🔒 全局 CSS 視覺注入與優化 (安全分離版，不使用 f-string 避免 NameError)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -97,34 +101,9 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
-# 使用百分比轉義（{{ 和 }}）保護 CSS 大括號不被 Python 格式化引擎誤認
+# 1. 注入帶有動態 Banner 的特定樣式
 st.markdown(f"""
     <style>
-    .block-container {{
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-    }}
-    header[data-testid="stHeader"] {{
-        background-color: transparent !important;
-        pointer-events: none !important; 
-    }}
-    div[data-testid="stStatusWidget"],
-    .stDeployButton,
-    button[data-testid="baseButton-header"],
-    button[aria-label="Context menu"],
-    button[title="Developer options"],
-    div[class*="stActionButton"],
-    header button {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }}
-    #MainMenu {{visibility: hidden; display: none !important;}} 
-    footer {{visibility: hidden; display: none !important;}}
-    .viewerBadge_container__1QSob {{display: none !important;}}
-    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
-    
     .zhuoji-banner {{
         background-image: url('data:image/jpeg;base64,{banner_base64}');
         background-size: cover;
@@ -139,33 +118,64 @@ st.markdown(f"""
         align-items: center;
         justify-content: center;
     }}
-    div.zhuoji-banner {{ background-color: #e8ded1; }}
-    .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
-    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
-    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-    .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
-    .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
-    .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
-    .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
-    @keyframes floatUp {{
-        0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
-        20% {{ opacity: 0.6; }}
-        60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
-        100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
-    }}
-    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
-    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
-    div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
-    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
-    .river-fragment {{ display: inline; }}
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. 注入純靜態 CSS 樣式塊（徹底不使用 f-string 格式化，百分之百免疫 NameError 地雷）
+st.markdown("""
+    <style>
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+    }
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        pointer-events: none !important; 
+    }
+    div[data-testid="stStatusWidget"],
+    .stDeployButton,
+    button[data-testid="baseButton-header"],
+    button[aria-label="Context menu"],
+    button[title="Developer options"],
+    div[class*="stActionButton"],
+    header button {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    #MainMenu {visibility: hidden; display: none !important;} 
+    footer {visibility: hidden; display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    .chahu-minimal-area { background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }
     
-    /* 🛡️ 終極大絕：強制拔除蜜糖罐元件的所有視覺屬性與佔用空間 */
+    div.zhuoji-banner { background-color: #e8ded1; }
+    .content-text { font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }
+    .poem-text { font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }
+    .avatar-area { position: relative; display: inline-block; margin-bottom: 8px; }
+    .chahu-photo { width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .smoke-container { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }
+    .smoke-line { position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }
+    .smoke-1 { left: 8px; height: 12px; animation-delay: 0s; }
+    .smoke-2 { left: 18px; height: 16px; animation-delay: 0.8s; }
+    @keyframes floatUp {
+        0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
+        20% { opacity: 0.6; }
+        60% { transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }
+        100% { transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }
+    }
+    .chahu-title { font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }
+    .chahu-subtitle { font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }
+    div.stButton > button[key^="sink_btn"] { background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }
+    .touyuan-river { background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }
+    .river-fragment { display: inline; }
+    
+    /* 🛡️ 蜜糖罐終極抹除：穿透 Streamlit 的外層與內容物標籤 */
     div[data-testid="stFieldContainer"]:has(input[id="chahu_honeypot_field"]),
     div[data-testid="stFieldContainer"]:has(input[key="chahu_honeypot_field"]),
     [data-testid="stTextInput"]:has(#chahu_honeypot_field),
     [data-testid="stTextInput"]:has([key="chahu_honeypot_field"]),
-    .stTextInput:has(#chahu_honeypot_field) {{
+    .stTextInput:has(#chahu_honeypot_field) {
         display: none !important;
         visibility: hidden !important;
         position: absolute !important;
@@ -177,7 +187,7 @@ st.markdown(f"""
         opacity: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-    }}
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -350,7 +360,7 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
             
-            # 🤖 機器人蜜糖罐：使用原生隱藏標籤，並將預設 DOM ID 與 key 同步鎖死
+            # 🤖 機器人蜜糖罐：內建標籤完全隱藏，配置對應 DOM ID
             bot_trap = st.text_input("🤖 這是捕蟲蜜糖樽請勿填寫，填上面那一格啊", id="chahu_honeypot_field", key="chahu_honeypot_field", label_visibility="collapsed")
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
@@ -445,7 +455,7 @@ with tab1:
             groq_key = get_groq_api_key()
             
             if not groq_key:
-                chahu_reply = "😮‍💨 喵嗚... 店長還沒在 Render 後台填入 `GROQ_API_KEY` 環境變數，我現在沒辦法陪你聊天..."
+                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認 Render 的 Environment Variables 裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
                     client = Groq(api_key=groq_key)
