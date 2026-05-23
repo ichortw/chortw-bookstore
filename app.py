@@ -18,7 +18,7 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
     c.execute('''CREATE TABLE IF NOT EXISTS stamps 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, created_at TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS memo 
+    c.execute('''CREATE TABLE IF NOT EXISTS memo  
                  (id INTEGER PRIMARY KEY, content TEXT)''')
     c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
     c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
@@ -57,25 +57,55 @@ elif os.path.exists("chahu.jpg"):
         mime_type = "image/jpeg"
 
 # ==========================================
-# 🔒 2. 全局 CSS 視覺注入與優化
+# 🖼️ 讀取店長設計的大招牌 Banner 背景圖 (banner.jpg)
+# ==========================================
+banner_base64 = ""
+if os.path.exists("banner.jpg"):
+    with open("banner.jpg", "rb") as banner_file:
+        banner_base64 = base64.b64encode(banner_file.read()).decode()
+
+# ==========================================
+# 🔒 2. 全局 CSS 視覺注入與優化 (整合大招牌與 SEO 關鍵字)
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
+# ✨ 透過 HTML components 注入 SEO 關鍵字與 Meta 描述，提升搜尋引擎排名的曝光機會
+st.components.v1.html("""
+    <script>
+        // 動態將 SEO 標籤注入到主網頁的 <head> 當中
+        var metaKeywords = window.parent.document.createElement('meta');
+        metaKeywords.name = "keywords";
+        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
+        window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
+
+        var metaDesc = window.parent.document.createElement('meta');
+        metaDesc.name = "description";
+        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵藏書閣，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓書僮「茶壺」為您茶水伺候、隔空翻書。";
+        window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
+        
+        var metaAuthor = window.parent.document.createElement('meta');
+        metaAuthor.name = "author";
+        metaAuthor.content = "桌記書店店長";
+        window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
+    </script>
+""", height=0, width=0)
+
+# 注入全局 CSS 與自訂 Banner 樣式
 st.markdown(f"""
     <style>
     /* 🛠️ 調整頂部空白，確保大招牌正常顯示且不突兀 */
     .block-container {{
-        padding-top: 2.5rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
     }}
     
-    /* 修正：只拿掉網頁最頂部的灰色裝飾細線，保留大招牌 */
+    /* 修正：只拿掉網頁最頂部的灰色裝飾細線 */
     header[data-testid="stHeader"] {{
         background-color: transparent !important;
-        pointer-events: none !important; /* 防止任何人點擊頂部殘留隱形區域 */
+        pointer-events: none !important; 
     }}
     
-    /* 🛠️ 全面封殺與隱藏新版右上角的三個點 [···] 功能按鈕、Deploy 按鈕與主選單 */
+    /* 🛠️ 全面封殺與隱藏新版右上角的功能按鈕、Deploy 按鈕與主選單 */
     div[data-testid="stStatusWidget"],
     .stDeployButton,
     button[data-testid="baseButton-header"],
@@ -93,6 +123,26 @@ st.markdown(f"""
     footer {{visibility: hidden; display: none !important;}}
     .viewerBadge_container__1QSob {{display: none !important;}}
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
+    
+    /* ✨ 店長自訂大招牌 Banner 區塊 CSS 樣式 */
+    .zhuoji-banner {{
+        background-image: url('data:image/jpeg;base64,{banner_base64}');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        width: 100%;
+        height: 220px; /* 根據店長圖片比例調整的高度 */
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }}
+    /* 如果背景圖載入失敗，顯示優雅的預備底色 */
+    div.zhuoji-banner {{
+        background-color: #e8ded1;
+    }}
     
     /* 手機版作品內容字體調大 */
     .content-text {{
@@ -163,8 +213,8 @@ st.markdown(f"""
 # 確保全域頂部錨點，讓 JavaScript 隨時可以抓取
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 
-# 大招牌
-st.title("📚 桌記書店")
+# ✨ 替換原先粗糙的純文字 st.title，改用店長設計的滿版藝術大招牌區塊
+st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
 # 3. 撈出全局核心資料
@@ -253,7 +303,6 @@ with tab1:
     
     with col_book:
         if all_books_list:
-            # 清除書名左邊的所有 emoji，保持清簡觀
             st.subheader(f"《{st.session_state.current_book_title}》")
             
             shuffled_titles = st.session_state.entropy_order
@@ -290,7 +339,7 @@ with tab1:
                 st.session_state.sync_rerun_key += 1
                 if f"slice_start_{chosen}" in st.session_state:
                     del st.session_state[f"slice_start_{chosen}"]
-                st.session_state.scroll_to_top_trigger = True  # 同步滾動回頂端
+                st.session_state.scroll_to_top_trigger = True  
                 st.rerun()
 
             st.markdown("---")
@@ -311,7 +360,6 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 底部的［再翻箱］鍵，點擊後百分之百向上捲回最頂部
                         if st.button("📦 再翻箱", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
@@ -323,7 +371,7 @@ with tab1:
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
                             
-                            st.session_state.scroll_to_top_trigger = True  # 啟動強制滾回頂端機制
+                            st.session_state.scroll_to_top_trigger = True  
                             st.rerun()
         else:
             st.subheader("無作品")
@@ -417,7 +465,7 @@ with tab1:
             with st.chat_message("user"):
                 st.write(user_chat)
                 
-            match = None  # 預先初始化避免異常時產生變數未定義錯誤
+            match = None  
             try:
                 groq_key = st.secrets["GROQ_API_KEY"]
                 client = Groq(api_key=groq_key)
@@ -481,7 +529,7 @@ with tab2:
             if st.button("確認上架"):
                 if new_title and new_content:
                     conn = sqlite3.connect('zhuoji_books.db')
-                    c = conn.cursor()  # ✨ 已經幫你修正這裡！原先為錯誤的 cursor() 
+                    c = conn.cursor()  
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
