@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import streamlit as st
 import sqlite3
 import random
@@ -19,7 +18,7 @@ def init_db():
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
     c.execute('''CREATE TABLE IF NOT EXISTS stamps 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, created_at TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS memo  
+    c.execute('''CREATE TABLE IF NOT EXISTS memo 
                  (id INTEGER PRIMARY KEY, content TEXT)''')
     c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
     c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
@@ -41,6 +40,24 @@ def init_db():
     conn.close()
 
 init_db()
+
+# ==========================================
+# 🔐 雙重金鑰安全讀取機制 (完美相容 Render 與 Streamlit Cloud)
+# ==========================================
+def get_groq_api_key():
+    # 1. 優先嘗試從 Render / 系統環境變數讀取
+    api_key = os.environ.get("GROQ_API_KEY")
+    if api_key:
+        return api_key
+    
+    # 2. 如果環境變數沒有，嘗試從 Streamlit secrets 讀取
+    try:
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except:
+        pass
+        
+    return None
 
 # ==========================================
 # 🐈 優先讀取動態 chahu.gif，若無則讀取靜態 chahu.jpg
@@ -283,13 +300,16 @@ verse_key = f"verse_{active_title}"
 if verse_key not in st.session_state:
     if all_books_list and active_title != "無":
         try:
-            groq_key = st.secrets["GROQ_API_KEY"]
-            temp_client = Groq(api_key=groq_key)
-            verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:300]}"
-            completion_verse = temp_client.chat.completions.create(
-                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": verse_prompt}], temperature=0.8, max_tokens=40
-            )
-            st.session_state[verse_key] = completion_verse.choices[0].message.content.strip().replace("「","").replace("」","")
+            groq_key = get_groq_api_key() # 修正 1：改用相容函數讀取金鑰
+            if groq_key:
+                temp_client = Groq(api_key=groq_key)
+                verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:300]}"
+                completion_verse = temp_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": verse_prompt}], temperature=0.8, max_tokens=40
+                )
+                st.session_state[verse_key] = completion_verse.choices[0].message.content.strip().replace("「","").replace("」","")
+            else:
+                st.session_state[verse_key] = "水煙裊裊，字裡行間皆是光陰。"
         except:
             st.session_state[verse_key] = "水煙裊裊，字裡行間皆是光陰。"
     else:
@@ -408,10 +428,13 @@ with tab1:
                     if len(words) > 20:
                         st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                     else:
-                        try:
-                            groq_key = st.secrets["GROQ_API_KEY"]
-                            client = Groq(api_key=groq_key)
-                            eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
+                        groq_key = get_groq_api_key() # 修正 2：改用相容函數讀取金鑰
+                        if not groq_key:
+                            st.session_state.touyuan_feedback = "🐾 （提示：Render 後台未偵測到 GROQ_API_KEY，請確認環境變數設定）"
+                        else:
+                            try:
+                                client = Groq(api_key=groq_key)
+                                eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
@@ -421,24 +444,24 @@ with tab1:
   "passed": true或false,
   "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
 }}"""
-                            response = client.chat.completions.create(
-                                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
-                            )
-                            res_json = json.loads(response.choices[0].message.content)
-                            st.session_state.touyuan_feedback = res_json["reply"]
-                            
-                            if res_json["passed"]:
-                                conn = sqlite3.connect('zhuoji_books.db')
-                                c = conn.cursor()
-                                c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                                conn.commit()
-                                conn.close()
-                        except:
-                            st.session_state.touyuan_feedback = "thank you"
+                                response = client.chat.completions.create(
+                                    model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
+                                )
+                                res_json = json.loads(response.choices[0].message.content)
+                                st.session_state.touyuan_feedback = res_json["reply"]
+                                
+                                if res_json["passed"]:
+                                    conn = sqlite3.connect('zhuoji_books.db')
+                                    c = conn.cursor()
+                                    c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                    conn.commit()
+                                    conn.close()
+                            except:
+                                st.session_state.touyuan_feedback = "thank you"
                 st.rerun()
 
         if "touyuan_feedback" in st.session_state:
-            if "就是你啊" in st.session_state.touyuan_feedback:
+            if "就是你啊" in st.session_state.touyuan_feedback or "提示" in st.session_state.touyuan_feedback:
                 st.success(f"🐈🐾 茶壺：{st.session_state.touyuan_feedback}")
             else:
                 st.error(f"🐈🐾 茶壺：{st.session_state.touyuan_feedback}")
@@ -484,34 +507,38 @@ with tab1:
                 st.write(user_chat)
                 
             match = None  
-            try:
-                groq_key = st.secrets["GROQ_API_KEY"]
-                client = Groq(api_key=groq_key)
-                catalog_summary = "\\n".join([f"· 《{b[1]}》 大綱：{b[2][:120]}..." for b in all_books_list])
-                is_slow_warmup = st.session_state.chat_turns <= 2
-                
-                dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\\n\\n【全店藏書】：\\n{catalog_summary}\\n\\n【當前看】：《{st.session_state.current_book_title}》"
-                if is_slow_warmup:
-                    dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
-                else:
-                    dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，字數越多越好！"
+            groq_key = get_groq_api_key() # 修正 3：改用相容函數讀取金鑰
+            
+            if not groq_key:
+                chahu_reply = "😮‍💨 喵嗚... 店長還沒在 Render 後台填入 `GROQ_API_KEY` 環境變數，我現在沒辦法陪你聊天..."
+            else:
+                try:
+                    client = Groq(api_key=groq_key)
+                    catalog_summary = "\\n".join([f"· 《{b[1]}》 大綱：{b[2][:120]}..." for b in all_books_list])
+                    is_slow_warmup = st.session_state.chat_turns <= 2
+                    
+                    dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\\n\\n【全店藏書】：\\n{catalog_summary}\\n\\n【當前看】：《{st.session_state.current_book_title}》"
+                    if is_slow_warmup:
+                        dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
+                    else:
+                        dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，字數越多越好！"
 
-                completion = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile", messages=[{"role": "system", "content": dynamic_system_prompt},{"role": "user", "content": user_chat}], temperature=0.8
-                )
-                chahu_reply = completion.choices[0].message.content
-                match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
-                if match:
-                    book_open_title = match.group(1).strip()
-                    for bk in all_books_list:
-                        if bk[1] == book_open_title:
-                            st.session_state.current_book_title = book_open_title
-                            st.session_state.is_fully_expanded = False
-                            st.session_state.sync_rerun_key += 1
-                            st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
-                            break
-            except Exception as e:
-                chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
+                    completion = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile", messages=[{"role": "system", "content": dynamic_system_prompt},{"role": "user", "content": user_chat}], temperature=0.8
+                    )
+                    chahu_reply = completion.choices[0].message.content
+                    match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
+                    if match:
+                        book_open_title = match.group(1).strip()
+                        for bk in all_books_list:
+                            if bk[1] == book_open_title:
+                                st.session_state.current_book_title = book_open_title
+                                st.session_state.is_fully_expanded = False
+                                st.session_state.sync_rerun_key += 1
+                                st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
+                                break
+                except Exception as e:
+                    chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
