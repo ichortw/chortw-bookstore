@@ -69,10 +69,15 @@ st.markdown(f"""
         padding-bottom: 2rem !important;
     }}
     
-    /* 🛠️ 修正：只拿掉網頁最頂部的灰色裝飾細線，保留大招牌 */
+    /* 修正：只拿掉網頁最頂部的灰色裝飾細線，保留大招牌 */
     header[data-testid="stHeader"] {{
         background-color: transparent !important;
     }}
+    
+    /* 🛠️ 修正（4）：徹底隱藏右上角的 Deploy、View Source 按鈕與所有選單 */
+    div[data-testid="stStatusWidget"] {{ display: none !important; }}
+    .stDeployButton {{ display: none !important; }}
+    button[data-testid="baseButton-header"] {{ display: none !important; }}
     
     /* 頂部招牌 banner [桌記書店] 放大成 150% */
     h1 {{
@@ -155,10 +160,10 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# 頂部隱形錨點
+# 確保全域頂部錨點，讓 JavaScript 隨時可以抓取
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 
-# 大招牌在此正式宣告
+# 大招牌
 st.title("📚 桌記書店")
 
 # ==========================================
@@ -193,6 +198,10 @@ if "is_fully_expanded" not in st.session_state:
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = 0
 
+# 用來處理強制頂部捲動的 Session State
+if "scroll_to_top_trigger" not in st.session_state:
+    st.session_state.scroll_to_top_trigger = False
+
 active_title = st.session_state.current_book_title
 active_content = "目前書架沒有任何書籍。"
 active_is_poem = 0
@@ -225,6 +234,15 @@ if verse_key not in st.session_state:
     else:
         st.session_state[verse_key] = "書架空置，靜候新章。"
 
+# 檢查是否有強制向上捲動的觸發器
+if st.session_state.scroll_to_top_trigger:
+    st.components.v1.html("""
+        <script>
+            window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
+        </script>
+    """, height=0, width=0)
+    st.session_state.scroll_to_top_trigger = False  # 執行完畢立刻重置
+
 tab1, tab2 = st.tabs(["🍵 書館茶座", "⚙️ 藏書閣"])
 
 # ==========================================
@@ -235,21 +253,8 @@ with tab1:
     
     with col_book:
         if all_books_list:
-            btn_col, title_col = st.columns([1, 4])
-            with btn_col:
-                if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
-                    remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                    if not remain_titles:
-                        remain_titles = [b[1] for b in all_books_list]
-                    chosen = random.choice(remain_titles)
-                    st.session_state.current_book_title = chosen
-                    st.session_state.is_fully_expanded = False
-                    st.session_state.sync_rerun_key += 1
-                    if f"slice_start_{chosen}" in st.session_state:
-                        del st.session_state[f"slice_start_{chosen}"]
-                    st.rerun()
-            with title_col:
-                st.subheader(f"《{st.session_state.current_book_title}》")
+            # 修正（3）：清除書名左邊的所有 emoji，保持清簡觀
+            st.subheader(f"《{st.session_state.current_book_title}》")
             
             shuffled_titles = st.session_state.entropy_order
             if active_title not in shuffled_titles:
@@ -275,6 +280,20 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
+            # 修正（2）：將「翻箱」鍵完整移回作品下拉清單下方、內容上方兩者之間
+            if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
+                remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
+                if not remain_titles:
+                    remain_titles = [b[1] for b in all_books_list]
+                chosen = random.choice(remain_titles)
+                st.session_state.current_book_title = chosen
+                st.session_state.is_fully_expanded = False
+                st.session_state.sync_rerun_key += 1
+                if f"slice_start_{chosen}" in st.session_state:
+                    del st.session_state[f"slice_start_{chosen}"]
+                st.session_state.scroll_to_top_trigger = True  # 同步滾動回頂端
+                st.rerun()
+
             st.markdown("---")
             
             preview_length = 200
@@ -282,7 +301,6 @@ with tab1:
                 st.markdown(f'<div class="poem-text">{active_content.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
-                    # 🛠️ 修正：徹底修復這裡的變數拼寫錯誤，不再崩潰
                     platform_start = st.session_state[slice_key]
                     st.markdown(f'<div class="content-text">...... {active_content[platform_start:platform_start+preview_length]} ......</div>', unsafe_allow_html=True)
                     
@@ -294,6 +312,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
+                        # 修正（1）：修復底部的［再翻箱］鍵，確保點擊後百分之百向上捲回最頂部
                         if st.button("📦 再翻箱", help="讀完了？點擊再次盲抽，並自動捲回書店最頂端！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
@@ -305,11 +324,7 @@ with tab1:
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
                             
-                            st.components.v1.html("""
-                                <script>
-                                    window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
-                                </script>
-                            """, height=0, width=0)
+                            st.session_state.scroll_to_top_trigger = True  # 啟動強制滾回頂端機制
                             st.rerun()
         else:
             st.subheader("無作品")
@@ -470,7 +485,7 @@ with tab2:
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
-                    st.success(f"🎉 《{new_title}》已匯入！")
+                    st.success(f"🎉 《{new_title}深度匯入！")
                     st.rerun()
 
         st.subheader("🛡️ 館藏備份與還原")
