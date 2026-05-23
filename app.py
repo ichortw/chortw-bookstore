@@ -280,7 +280,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📦 翻箱", help="讓茶壺從箱子裡幫你隨手翻一本書出來吧！", key="top_unbox_btn"):
+            if st.button("📦 翻箱", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
