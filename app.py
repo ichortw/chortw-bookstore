@@ -243,7 +243,7 @@ if st.session_state.scroll_to_top_trigger:
     """, height=0, width=0)
     st.session_state.scroll_to_top_trigger = False  # 執行完畢立刻重置
 
-tab1, tab2 = st.tabs(["🍵 書館茶座", "⚙️ 藏書閣"])
+tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 書閣"])
 
 # ==========================================
 # 【分頁一：雲端書館與美短貓陪讀】
@@ -281,7 +281,7 @@ with tab1:
                 st.rerun()
 
             # 🛠️ 這裡已修復：修正當初錯打的 require_titles 變數名稱
-            if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
+            if st.button("📦 翻箱", help="讓茶壺從箱子裡幫你隨手翻一本書出來吧！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -313,7 +313,7 @@ with tab1:
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         # 底部的［再翻箱］鍵，點擊後百分之百向上捲回最頂部
-                        if st.button("📦 再翻箱", help="讀完了？點擊再次盲抽，並自動捲回書店最頂端！", key="rear_unboxing_btn"):
+                        if st.button("📦 再翻箱", help="讀完了？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -331,17 +331,17 @@ with tab1:
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             
         st.markdown("---")
-        st.subheader("🛡️ 投緣牆（集體相認長詩）")
+        st.subheader("🛡️ 投緣牆")
         
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("拋出一枚靈魂印記（限20字，包含英文單字計1字）：", max_chars=100)
+            visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，不要多過20字，投進來，她會幫你貼上投緣牆，來吧！", max_chars=100)
             st.markdown('<div style="display:none;"><input type="text" name="mail_honey" id="mail_honey"></div>', unsafe_allow_html=True)
-            submitted = st.form_submit_button("✨ 投緣", help="點擊將您的靈魂碎片投射到下方的時代長詩中")
+            submitted = st.form_submit_button("✨ 投緣", help="投吧")
             
             if submitted and visitor_input:
                 words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
                 if len(words) > 20:
-                    st.warning("⚠️ 怨念太重了！字數超過 20 字，小貓書僮讀得頭暈，請精簡靈魂。")
+                    st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                 else:
                     try:
                         groq_key = st.secrets["GROQ_API_KEY"]
@@ -400,8 +400,8 @@ with tab1:
                     </div>
                     {avatar_html}
                 </div>
-                <div class="chahu-title">書僮「茶壺」</div>
-                <div class="chahu-subtitle">（少年的美國短毛貓，正帶著300%專注與好奇的眼神看著你）</div>
+                <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
+                <div class="chahu-subtitle">店長說我是一隻ESFP的小貓，但我覺得店長其實什麼也不懂</div>
             </div>
         """, unsafe_allow_html=True)
         
