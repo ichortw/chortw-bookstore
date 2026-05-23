@@ -75,7 +75,7 @@ st.markdown(f"""
         pointer-events: none !important; /* 防止任何人點擊頂部殘留隱形區域 */
     }}
     
-    /* 🛠️ 修正（4）：全面封殺與隱藏新版右上角的三個點 [···] 功能按鈕、Deploy 按鈕與主選單 */
+    /* 🛠️ 全面封殺與隱藏新版右上角的三個點 [···] 功能按鈕、Deploy 按鈕與主選單 */
     div[data-testid="stStatusWidget"],
     .stDeployButton,
     button[data-testid="baseButton-header"],
@@ -253,7 +253,7 @@ with tab1:
     
     with col_book:
         if all_books_list:
-            # 修正（3）：清除書名左邊的所有 emoji，保持清簡觀
+            # 清除書名左邊的所有 emoji，保持清簡觀
             st.subheader(f"《{st.session_state.current_book_title}》")
             
             shuffled_titles = st.session_state.entropy_order
@@ -280,10 +280,10 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            # 修正（2）：將「翻箱」鍵完整移回作品下拉清單下方、內容上方兩者之間
+            # 🛠️ 這裡已修復：修正當初錯打的 require_titles 變數名稱
             if st.button("📦 翻箱", help="讓小貓在古舊字箱裡幫您盲抽另一本作品吧！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not require_titles:
+                if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
                 chosen = random.choice(remain_titles)
                 st.session_state.current_book_title = chosen
@@ -312,7 +312,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 修正（1）：修復底部的［再翻箱］鍵，確保點擊後百分之百向上捲回最頂部
+                        # 底部的［再翻箱］鍵，點擊後百分之百向上捲回最頂部
                         if st.button("📦 再翻箱", help="讀完了？點擊再次盲抽，並自動捲回書店最頂端！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
@@ -481,7 +481,7 @@ with tab2:
             if st.button("確認上架"):
                 if new_title and new_content:
                     conn = sqlite3.connect('zhuoji_books.db')
-                    c = conn.cursor()
+                    c = cursor()
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
