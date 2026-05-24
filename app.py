@@ -384,11 +384,11 @@ with tab1:
             
         st.subheader("🛡️ 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
+            visitor_input = st.text_input("有緣的話，你寫一句茶壼喜歡的句子投進這格子，別多過20字就好，真的讓她喜歡便會幫你貼上投緣牆，她說要給句子們結集成詩啊，來吧！", max_chars=100)
             
             # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入：對人類完全隱形，專門阻擊網路爬蟲
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
-            bot_trap_input = st.text_input("捕蟲蜜糖：如果你看得到這一格，請絕對不要填寫它（機器人專用）。", key="chahu_honeypot_trap_key", value="")
+            bot_trap_input = st.text_input("捕蟲蜜糖罐只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
