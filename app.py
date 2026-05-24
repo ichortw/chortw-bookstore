@@ -373,12 +373,12 @@ with tab1:
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             st.markdown("---")
             
-        st.subheader("🛡️ 投緣牆")
+        st.subheader("🧱 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("有緣的話，你寫一句茶壼喜歡的句子投進這格子，別多過20字就好，真的讓她喜歡便會幫你貼上投緣牆，她說要給句子們結集成詩啊，來吧！", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
-            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人高恩🍯", key="chahu_honeypot_trap_key", value="")
+            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
