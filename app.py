@@ -50,6 +50,7 @@ def inject_watermark(text):
         return text
     ZW_A = "\u200B" # Zero-Width Space
     ZW_B = "\u200C" # Zero-Width Non-Joiner
+    
     fingerprint = ZW_A + ZW_B + ZW_A + ZW_A + ZW_B
     
     result = []
@@ -57,6 +58,7 @@ def inject_watermark(text):
         result.append(char)
         if random.random() < 0.35:
             result.append(fingerprint)
+            
     return "".join(result)
 
 # ==========================================
@@ -74,7 +76,7 @@ def get_groq_api_key():
     return None
 
 # ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法
+# 🐈 圖片與 Banner 記憶快取魔法 (防止重複讀取硬碟，刷新秒噴)
 # ==========================================
 @st.cache_data
 def load_assets_cached():
@@ -82,6 +84,7 @@ def load_assets_cached():
     mime_type = "image/jpeg"
     banner_base64 = ""
     
+    # 1. 讀取與轉碼茶壺小貓
     if os.path.exists("chahu.gif"):
         with open("chahu.gif", "rb") as image_file:
             img_base64 = base64.b64encode(image_file.read()).decode()
@@ -91,16 +94,18 @@ def load_assets_cached():
             img_base64 = base64.b64encode(image_file.read()).decode()
             mime_type = "image/jpeg"
             
+    # 2. 讀取與轉碼橫幅 Banner
     if os.path.exists("banner.jpg"):
         with open("banner.jpg", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
             
     return img_base64, mime_type, banner_base64
 
+# 一行召喚魔法，將結果解包出來給全域使用
 img_base64, mime_type, banner_base64 = load_assets_cached()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與安全防禦 (已修復引號閉合與語法混淆 Bug)
+# 🔒 全局 CSS 視覺注入與安全防禦
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -123,10 +128,10 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
-st.markdown(f"""
+banner_css = """
     <style>
-    .zhuoji-banner {{
-        background-image: url('data:image/jpeg;base64,{banner_base64}');
+    .zhuoji-banner {
+        background-image: url('data:image/jpeg;base64,""" + banner_base64 + """');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -138,64 +143,73 @@ st.markdown(f"""
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #e8ded1;
-    }}
-    
-    .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {{
+    }
+    </style>
+"""
+st.markdown(banner_css, unsafe_allow_html=True)
+
+st.markdown("""
+    <style>
+    /* 🛡️ 精準 CSS Guard: 僅禁止小說本文、詩集與靈魂金句的反反白，釋放全局控制權 */
+    .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         user-select: none !important;
-    }}
+    }
     
-    .chahu-bot-trap {{
+    /* 🍯 蜜糖陷阱 (Honeypot) 隱形樣式 */
+    .chahu-bot-trap {
         display: none !important;
-    }}
+        tab-index: -1;
+        autocomplete: off;
+    }
     
-    .block-container {{
+    .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
-    }}
-    header[data-testid="stHeader"] {{
+    }
+    header[data-testid="stHeader"] {
         background-color: transparent !important;
         pointer-events: none !important; 
-    }}
+    }
     div[data-testid="stStatusWidget"],
     .stDeployButton,
     button[data-testid="baseButton-header"],
     button[aria-label="Context menu"],
     button[title="Developer options"],
     div[class*="stActionButton"],
-    header button {{
+    header button {
         display: none !important;
         visibility: hidden !important;
         opacity: 0 !important;
         pointer-events: none !important;
-    }}
-    #MainMenu {{visibility: hidden; display: none !important;}} 
-    footer {{visibility: hidden; display: none !important;}}
-    .viewerBadge_container__1QSob {{display: none !important;}}
-    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
+    }
+    #MainMenu {visibility: hidden; display: none !important;} 
+    footer {visibility: hidden; display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    .chahu-minimal-area { background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }
     
-    .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
-    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
-    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-    .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
-    .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
-    .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
-    .smoke-2 {{ left: 18px; height: 16px; animation-delay: 0.8s; }}
-    @keyframes floatUp {{
-        0% {{ transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }}
-        20% {{ opacity: 0.6; }}
-        60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
-        100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
-    }}
-    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
-    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
-    div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
-    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
-    .river-fragment {{ display: inline; }}
+    div.zhuoji-banner { background-color: #e8ded1; }
+    .content-text { font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }
+    .poem-text { font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }
+    .avatar-area { position: relative; display: inline-block; margin-bottom: 8px; }
+    .chahu-photo { width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .smoke-container { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }
+    .smoke-line { position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }
+    .smoke-1 { left: 8px; height: 12px; animation-delay: 0s; }
+    .smoke-2 { left: 18px; height: 16px; animation-delay: 0.8s; }
+    @keyframes floatUp {
+        0% { transform: translateY(0) scaleX(1) scaleY(1); opacity: 0; }
+        20% { opacity: 0.6; }
+        60% { transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }
+        100% { transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }
+    }
+    .chahu-title { font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }
+    .chahu-subtitle { font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }
+    div.stButton > button[key^="sink_btn"] { background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }
+    .touyuan-river { background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }
+    .river-fragment { display: inline; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -203,7 +217,7 @@ st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 3. 撈出全局核心資料
+# 3. 撈出全局核心資料 (全加上跨執行緒防禦 check_same_thread=False)
 # ==========================================
 conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
 c = conn.cursor()
@@ -372,7 +386,7 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("有緣的話，你寫一句茶壼喜歡的句子投進這格子，別多過20字就好，真的讓她喜歡便會幫你貼上投緣牆，她說要給句子們結集成詩啊，來吧！", max_chars=100)
             
-            # 🍯 隱形蜜糖陷阱 (Honeypot) - 已修正相容性移除不支援參數
+            # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人高恩🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
@@ -473,17 +487,18 @@ with tab1:
             else:
                 try:
                     client = Groq(api_key=groq_key)
+                    
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     
+                    # 🩺 縫合「活在當下」精準迴路：直接精準抓取此時此刻、網頁畫面上呈現的這篇唯一作品
                     current_work_title = st.session_state.current_book_title
+                    current_work_content = active_content
                     
-                    # 🚀 終極防禦：限制餵給大腦的內文字數（最高1200字），完美解決每日10萬Token的天花板限制
-                    current_work_content_limited = active_content[:1200]
-                    
+                    # 🚀 重新編排傳送給 Groq 的神經元訊息，將整座圖書館大石換成單一精緻卷軸
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 \\n\\n【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
-作品精選內文如下：
-{current_work_content_limited}
+作品內文如下：
+{current_work_content}
 
 【茶壺行為最高指令】：請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！"""
 
@@ -492,6 +507,7 @@ with tab1:
                     else:
                         dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，字數越多越好！"
 
+                    # 💎 輕裝上陣，維持頂級 llama-3.3-70b-versatile 模型
                     completion = client.chat.completions.create(
                         model="llama-3.3-70b-versatile", messages=[{"role": "system", "content": dynamic_system_prompt},{"role": "user", "content": user_chat}], temperature=0.8
                     )
