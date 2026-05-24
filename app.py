@@ -386,15 +386,14 @@ with tab1:
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("有緣的話，你寫一句茶壼喜歡的句子投進這格子，別多過20字就好，真的讓她喜歡便會幫你貼上投緣牆，她說要給句子們結集成詩啊，來吧！", max_chars=100)
             
-            # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入：對人類完全隱形，專門阻擊網路爬蟲
+            # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
-            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
+            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人高恩🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
-                # 🛑 觸發陷阱：如果隱形欄位被盲讀的腳本填寫了，直接判定為惡意機器人
                 if bot_trap_input:
                     st.session_state.touyuan_feedback = "thank you"
                 else:
@@ -488,10 +487,17 @@ with tab1:
             else:
                 try:
                     client = Groq(api_key=groq_key)
-                    catalog_summary = "\\n".join([f"· 《{b[1]}》 大綱：{b[2][:120]}..." for b in all_books_list])
+                    
+                    # 💡 【優化核心】：只做「全店書名目錄摘要」，不傳本文，徹底解放脈絡長度
+                    catalog_summary = "\\n".join([f"· 《{b[1]}》" for b in all_books_list])
+                    
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     
-                    dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\\n\\n【全店藏書】：\\n{catalog_summary}\\n\\n【當前看】：《{st.session_state.current_book_title}》"
+                    # 🧠 【精準餵食機制】：結合店長提議的新寫法，只把當前閱讀的「整篇作品本文」餵給 Groq
+                    dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
+\\n\\n【全店藏書目錄（如欲推薦可從中挑選）】：\\n{catalog_summary}
+\\n\\n【讀者目前正在閱讀的作品《{st.session_state.current_book_title}》內容如下】：\\n{active_content}
+"""
                     if is_slow_warmup:
                         dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
                     else:
