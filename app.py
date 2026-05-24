@@ -43,6 +43,22 @@ def init_db():
 init_db()
 
 # ==========================================
+# ⚡ 記憶體護衛核心：全局資料庫讀取快取 (根治 OOM 核心)
+# ==========================================
+@st.cache_data(ttl=60, show_spinner=False)  # 快取 60 秒，期間重複整理不消耗額外記憶體與硬碟
+def fetch_core_data_cached():
+    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
+    prompt = c.fetchone()[0]
+    c.execute("SELECT id, title, content, is_poem FROM books")
+    books = c.fetchall()
+    c.execute("SELECT content FROM stamps ORDER BY id DESC") 
+    stamps = [r[0] for r in c.fetchall()]
+    conn.close()
+    return prompt, books, stamps
+
+# ==========================================
 # 🛡️ IP 版權護衛演算法：零寬度隱形浮水印 (Zero-Width Watermark)
 # ==========================================
 def inject_watermark(text):
@@ -60,7 +76,7 @@ def inject_watermark(text):
     return "".join(result)
 
 # ==========================================
-# 🔐 Gemini 金鑰安全讀取與初始化 (⚡ 快取優化版：避免每次按鈕都重新初始化)
+# ⚡ Gemini 金鑰安全讀取與初始化 (⚡ 快取優化版：避免每次按鈕都重新初始化)
 # ==========================================
 @st.cache_resource
 def init_gemini_cached():
@@ -87,7 +103,7 @@ def generate_verse_cached(title, content, _has_gemini):
         return "水煙裊裊，字裡行間皆是光陰。"
     try:
         model_verse = genai.GenerativeModel("gemini-2.5-flash")
-        verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{title}》\\n內容：\\n{content[:500]}"
+        verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\n書名：《{title}》\n內容：\n{content[:500]}"
         completion_verse = model_verse.generate_content(verse_prompt)
         return completion_verse.text.strip().replace("「","").replace("」","")
     except:
@@ -223,17 +239,9 @@ st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 3. 撈出全局核心資料
+# 3. 撈出全局核心資料 (🚀 快取優化：從內存直接讀，不重組對象)
 # ==========================================
-conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
-c = conn.cursor()
-c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
-CHAHU_PROMPT_FROM_DB = c.fetchone()[0]
-c.execute("SELECT id, title, content, is_poem FROM books")
-all_books_list = c.fetchall()
-c.execute("SELECT content FROM stamps ORDER BY id DESC") 
-current_stamps = [r[0] for r in c.fetchall()]
-conn.close()
+CHAHU_PROMPT_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
 
 if "sync_rerun_key" not in st.session_state:
     st.session_state.sync_rerun_key = 0
@@ -419,6 +427,7 @@ with tab1:
                                     c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
                                     conn.commit()
                                     conn.close()
+                                    st.cache_data.clear() # 🚀 強制刷新全局資料快取以顯示新留言
                             except:
                                 st.session_state.touyuan_feedback = "thank you"
                 st.rerun()
@@ -466,6 +475,11 @@ with tab1:
         if user_chat := st.chat_input("你要看什麼書呀？"):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
+            
+            # 🛡️ 記憶體防護罩：聊天歷史只保留最近 10 次，防止對話文字像雪球一樣無限增大撐爆 512MB
+            if len(st.session_state.messages) > 10:
+                st.session_state.messages = st.session_state.messages[-10:]
+                
             with st.chat_message("user"):
                 st.write(user_chat)
                 
@@ -477,12 +491,16 @@ with tab1:
                 try:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
-                    current_work_content = active_content
+                    
+                    # 🚀 記憶體降脂優化：只傳給 AI 前 800 字的內文精華，避免把幾萬字的小說一次全部塞進對話 context 壓垮內存
+                    current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
                     
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
-\\n\\n【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
+
+
+【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
 作品內文如下：
-{current_work_content}
+{current_work_content_chunk}
 
 【茶壺行為最高指令】：
 1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
@@ -490,9 +508,9 @@ with tab1:
 3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
 
                     if is_slow_warmup:
-                        dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
+                        dynamic_system_prompt += "\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
                     else:
-                        dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
+                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
                     model_chat = genai.GenerativeModel(
                         model_name="gemini-2.5-flash",
@@ -562,6 +580,7 @@ with tab2:
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
+                    st.cache_data.clear() # 🚀 上架後刷新快取
                     st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
@@ -581,6 +600,7 @@ with tab2:
                         c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item['title'], item['content'], item.get('is_poem', 0)))
                 conn.commit()
                 conn.close()
+                st.cache_data.clear() # 🚀 還原後刷新快取
                 st.success("🎉 全店館藏已滿血復活！")
                 st.rerun()
             except Exception as ex:
@@ -593,6 +613,7 @@ with tab2:
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
+            st.cache_data.clear() # 🚀 清空投緣牆後刷新快取
             st.rerun()
             
         for bk in all_books_list:
@@ -607,4 +628,5 @@ with tab2:
                     c.execute("DELETE FROM books WHERE id=?", (bk_id,))
                     conn.commit()
                     conn.close()
+                    st.cache_data.clear() # 🚀 下架後刷新快取
                     st.rerun()
