@@ -60,9 +60,10 @@ def inject_watermark(text):
     return "".join(result)
 
 # ==========================================
-# 🔐 Gemini 金鑰安全讀取與初始化
+# 🔐 Gemini 金鑰安全讀取與初始化 (⚡ 快取優化版：避免每次按鈕都重新初始化)
 # ==========================================
-def init_gemini():
+@st.cache_resource
+def init_gemini_cached():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         try:
@@ -75,7 +76,22 @@ def init_gemini():
         return True
     return False
 
-has_gemini = init_gemini()
+has_gemini = init_gemini_cached()
+
+# ==========================================
+# ⚡ 靈魂金句生成快取魔法 (⚡ 核心提速：相同文章不再重複呼叫 Gemini 浪費時間)
+# ==========================================
+@st.cache_data(show_spinner=False)
+def generate_verse_cached(title, content, _has_gemini):
+    if not _has_gemini or title == "無" or not content:
+        return "水煙裊裊，字裡行間皆是光陰。"
+    try:
+        model_verse = genai.GenerativeModel("gemini-2.5-flash")
+        verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{title}》\\n內容：\\n{content[:500]}"
+        completion_verse = model_verse.generate_content(verse_prompt)
+        return completion_verse.text.strip().replace("「","").replace("」","")
+    except:
+        return "水煙裊裊，字裡行間皆是光陰。"
 
 # ==========================================
 # 🐈 圖片與 Banner 記憶快取魔法
@@ -257,22 +273,9 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
+# ⚡ 快取加速呼叫：相同文章的金句直接由記憶體秒讀
+st.session_state[f"verse_{active_title}"] = generate_verse_cached(active_title, active_content, has_gemini)
 verse_key = f"verse_{active_title}"
-if verse_key not in st.session_state:
-    if all_books_list and active_title != "無":
-        try:
-            if has_gemini:
-                # 使用 Gemini 2.5 生成絕美金句
-                model_verse = genai.GenerativeModel("gemini-2.5-flash")
-                verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\\n書名：《{active_title}》\\n內容：\\n{active_content[:500]}"
-                completion_verse = model_verse.generate_content(verse_prompt)
-                st.session_state[verse_key] = completion_verse.text.strip().replace("「","").replace("」","")
-            else:
-                st.session_state[verse_key] = "水煙裊裊，字裡行間皆是光陰。"
-        except:
-            st.session_state[verse_key] = "水煙裊裊，字裡行間皆是光陰。"
-    else:
-        st.session_state[verse_key] = "書架空置，靜候新章。"
 
 if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("""
@@ -474,8 +477,6 @@ with tab1:
                 try:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
-                    
-                    # 🚀 Gemini 大海無量吞吐優勢：支援超大內文長度，這裡直接可以餵完整內文！
                     current_work_content = active_content
                     
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
@@ -493,13 +494,11 @@ with tab1:
                     else:
                         dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
-                    # 🧬 縫合全新的 Gemini 大腦客端
                     model_chat = genai.GenerativeModel(
                         model_name="gemini-2.5-flash",
                         system_instruction=dynamic_system_prompt
                     )
                     
-                    # 將歷史對話格式化為 Gemini SDK 的對話結構
                     gemini_history = []
                     for msg in st.session_state.messages[:-1]:
                         role = "user" if msg["role"] == "user" else "model"
@@ -544,7 +543,10 @@ with tab2:
             c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
             conn.commit()
             conn.close()
-            st.success("✨ RNA 翻新成功！")
+            
+            # 🔥 清除快取，確保新靈魂能立刻套用
+            st.cache_data.clear()
+            st.success("✨ RNA 翻新成功！已同步刷新大腦記憶庫！")
             st.rerun()
             
         st.markdown("---")
