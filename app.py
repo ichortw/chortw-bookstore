@@ -419,7 +419,7 @@ with tab1:
 }}"""
                                 response = client.chat.completions.create(
                                     model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
-                                    )
+                                )
                                 res_json = json.loads(response.choices[0].message.content)
                                 st.session_state.touyuan_feedback = res_json["reply"]
                                     
@@ -488,21 +488,26 @@ with tab1:
                 try:
                     client = Groq(api_key=groq_key)
                     
-                    # 💡 【優化核心】：只做「全店書名目錄摘要」，不傳本文，徹底解放脈絡長度
-                    catalog_summary = "\\n".join([f"· 《{b[1]}》" for b in all_books_list])
-                    
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     
-                    # 🧠 【精準餵食機制】：結合店長提議的新寫法，只把當前閱讀的「整篇作品本文」餵給 Groq
+                    # 🩺 縫合「活在當下」精準迴路：直接精準抓取此時此刻、網頁畫面上呈現的這篇唯一作品
+                    current_work_title = st.session_state.current_book_title
+                    current_work_content = active_content
+                    
+                    # 🚀 重新編排傳送給 Groq 的神經元訊息，將整座圖書館大石換成單一精緻卷軸
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
-\\n\\n【全店藏書目錄（如欲推薦可從中挑選）】：\\n{catalog_summary}
-\\n\\n【讀者目前正在閱讀的作品《{st.session_state.current_book_title}》內容如下】：\\n{active_content}
-"""
+\\n\\n【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
+作品內文如下：
+{current_work_content}
+
+【茶壺行為最高指令】：請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！"""
+
                     if is_slow_warmup:
                         dynamic_system_prompt += "\\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
                     else:
                         dynamic_system_prompt += "\\n【熱身完畢】：開啟話癆八卦吐槽模式，字數越多越好！"
 
+                    # 💎 輕裝上陣，維持頂級 llama-3.3-70b-versatile 模型
                     completion = client.chat.completions.create(
                         model="llama-3.3-70b-versatile", messages=[{"role": "system", "content": dynamic_system_prompt},{"role": "user", "content": user_chat}], temperature=0.8
                     )
