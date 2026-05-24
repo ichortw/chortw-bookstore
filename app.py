@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import sqlite3
 import random
@@ -9,10 +10,10 @@ from groq import Groq
 import base64
 
 # ==========================================
-# 1. 初始化資料庫 (確保 is_poem 與 stamps 存在)
+# 1. 初始化資料庫 (確保所有表格與預設提示詞存在，全面加上 SQLite 跨執行緒防禦)
 # ==========================================
 def init_db():
-    conn = sqlite3.connect('zhuoji_books.db')
+    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS books 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
@@ -75,27 +76,36 @@ def get_groq_api_key():
     return None
 
 # ==========================================
-# 🐈 圖片與 Banner 讀取機制
+# 🐈 圖片與 Banner 記憶快取魔法 (防止重複讀取硬碟，刷新秒噴)
 # ==========================================
-img_base64 = ""
-mime_type = "image/jpeg"
+@st.cache_data
+def load_assets_cached():
+    img_base64 = ""
+    mime_type = "image/jpeg"
+    banner_base64 = ""
+    
+    # 1. 讀取與轉碼茶壺小貓
+    if os.path.exists("chahu.gif"):
+        with open("chahu.gif", "rb") as image_file:
+            img_base64 = base64.b64encode(image_file.read()).decode()
+            mime_type = "image/gif"
+    elif os.path.exists("chahu.jpg"):
+        with open("chahu.jpg", "rb") as image_file:
+            img_base64 = base64.b64encode(image_file.read()).decode()
+            mime_type = "image/jpeg"
+            
+    # 2. 讀取與轉碼橫幅 Banner
+    if os.path.exists("banner.jpg"):
+        with open("banner.jpg", "rb") as banner_file:
+            banner_base64 = base64.b64encode(banner_file.read()).decode()
+            
+    return img_base64, mime_type, banner_base64
 
-if os.path.exists("chahu.gif"):
-    with open("chahu.gif", "rb") as image_file:
-        img_base64 = base64.b64encode(image_file.read()).decode()
-        mime_type = "image/gif"
-elif os.path.exists("chahu.jpg"):
-    with open("chahu.jpg", "rb") as image_file:
-        img_base64 = base64.b64encode(image_file.read()).decode()
-        mime_type = "image/jpeg"
-
-banner_base64 = ""
-if os.path.exists("banner.jpg"):
-    with open("banner.jpg", "rb") as banner_file:
-        banner_base64 = base64.b64encode(banner_file.read()).decode()
+# 一行召喚魔法，將結果解包出來給全域使用
+img_base64, mime_type, banner_base64 = load_assets_cached()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與安全防禦 (已精確修正防複製範圍，恢復後台使用)
+# 🔒 全局 CSS 視覺注入與安全防禦
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -118,7 +128,6 @@ st.components.v1.html("""
     </script>
 """, height=0, width=0)
 
-# 使用字串拼接安全塞入動態 Banner
 banner_css = """
     <style>
     .zhuoji-banner {
@@ -139,15 +148,21 @@ banner_css = """
 """
 st.markdown(banner_css, unsafe_allow_html=True)
 
-# 載入純靜態前端樣式 + 🔒 精準 CSS 護衛（只鎖定小說與對話內容，絕不干擾後台與輸入框點擊）
 st.markdown("""
     <style>
-    /* 🛡️ 精準 CSS Guard: 僅禁止小說本文、詩集與靈魂金句的反白與選取，釋放全局控制權 */
+    /* 🛡️ 精準 CSS Guard: 僅禁止小說本文、詩集與靈魂金句的反反白，釋放全局控制權 */
     .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         user-select: none !important;
+    }
+    
+    /* 🍯 蜜糖陷阱 (Honeypot) 隱形樣式 */
+    .chahu-bot-trap {
+        display: none !important;
+        tab-index: -1;
+        autocomplete: off;
     }
     
     .block-container {
@@ -202,9 +217,9 @@ st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 3. 撈出全局核心資料
+# 3. 撈出全局核心資料 (全加上跨執行緒防禦 check_same_thread=False)
 # ==========================================
-conn = sqlite3.connect('zhuoji_books.db')
+conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
 c = conn.cursor()
 c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
 CHAHU_PROMPT_FROM_DB = c.fetchone()[0]
@@ -370,20 +385,30 @@ with tab1:
         st.subheader("🛡️ 投緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("緣份啊，你寫一句茶壼喜歡的句子，別多過20字，投進來，她會幫你貼上投緣牆，她要給句子們結集成詩，來吧！", max_chars=100)
+            
+            # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入：對人類完全隱形，專門阻擊網路爬蟲
+            st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
+            bot_trap_input = st.text_input("捕蟲蜜糖：如果你看得到這一格，請絕對不要填寫它（機器人專用）。", key="chahu_honeypot_trap_key", value="")
+            st.markdown('</div>', unsafe_allow_html=True)
+            
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
             
             if submitted and visitor_input:
-                words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
-                if len(words) > 20:
-                    st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
+                # 🛑 觸發陷阱：如果隱形欄位被盲讀的腳本填寫了，直接判定為惡意機器人
+                if bot_trap_input:
+                    st.session_state.touyuan_feedback = "thank you"
                 else:
-                    groq_key = get_groq_api_key()
-                    if not groq_key:
-                        st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GROQ_API_KEY，請檢查環境變數）"
+                    words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
+                    if len(words) > 20:
+                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
                     else:
-                        try:
-                            client = Groq(api_key=groq_key)
-                            eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
+                        groq_key = get_groq_api_key()
+                        if not groq_key:
+                            st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GROQ_API_KEY，請檢查環境變數）"
+                        else:
+                            try:
+                                client = Groq(api_key=groq_key)
+                                eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
@@ -393,20 +418,20 @@ with tab1:
   "passed": true或false,
   "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
 }}"""
-                            response = client.chat.completions.create(
-                                model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
-                                )
-                            res_json = json.loads(response.choices[0].message.content)
-                            st.session_state.touyuan_feedback = res_json["reply"]
-                                
-                            if res_json["passed"]:
-                                conn = sqlite3.connect('zhuoji_books.db')
-                                c = conn.cursor()
-                                c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
-                                conn.commit()
-                                conn.close()
-                        except:
-                            st.session_state.touyuan_feedback = "thank you"
+                                response = client.chat.completions.create(
+                                    model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": eval_prompt}], temperature=0.8, response_format={"type": "json_object"}
+                                    )
+                                res_json = json.loads(response.choices[0].message.content)
+                                st.session_state.touyuan_feedback = res_json["reply"]
+                                    
+                                if res_json["passed"]:
+                                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+                                    c = conn.cursor()
+                                    c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
+                                    conn.commit()
+                                    conn.close()
+                            except:
+                                st.session_state.touyuan_feedback = "thank you"
                 st.rerun()
 
         if "touyuan_feedback" in st.session_state:
@@ -506,7 +531,7 @@ with tab2:
         st.success("🔓 店長身分驗證成功！")
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
-            conn = sqlite3.connect('zhuoji_books.db')
+            conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
             c = conn.cursor()
             c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
             conn.commit()
@@ -522,7 +547,7 @@ with tab2:
             
             if st.button("確認上架"):
                 if new_title and new_content:
-                    conn = sqlite3.connect('zhuoji_books.db')
+                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
                     c = conn.cursor()  
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
@@ -538,7 +563,7 @@ with tab2:
         if uploaded_backup is not None and st.button("⚡ 確認執行全面還原"):
             try:
                 restore_data = json.load(uploaded_backup)
-                conn = sqlite3.connect('zhuoji_books.db')
+                conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
                 c = conn.cursor()
                 for item in restore_data:
                     c.execute("SELECT id FROM books WHERE title=?", (item['title'],))
@@ -553,7 +578,7 @@ with tab2:
         
         st.markdown("---")
         if st.button("🗑️ 清空投緣牆"):
-            conn = sqlite3.connect('zhuoji_books.db')
+            conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
             c = conn.cursor()
             c.execute("DELETE FROM stamps")
             conn.commit()
@@ -567,7 +592,7 @@ with tab2:
                 st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
             with col2:
                 if st.button("下架", key=f"del_{bk_id}"):
-                    conn = sqlite3.connect('zhuoji_books.db')
+                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
                     c = conn.cursor()
                     c.execute("DELETE FROM books WHERE id=?", (bk_id,))
                     conn.commit()
