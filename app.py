@@ -388,7 +388,7 @@ with tab1:
             
             # 🍯 隱形蜜糖陷阱 (Honeypot) 元件注入：對人類完全隱形，專門阻擊網路爬蟲
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
-            bot_trap_input = st.text_input("捕蟲蜜糖罐只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
+            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
