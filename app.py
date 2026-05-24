@@ -43,9 +43,9 @@ def init_db():
 init_db()
 
 # ==========================================
-# ⚡ 記憶體護衛核心：全局資料庫讀取快取 (根治 OOM 核心)
+# ⚡ 記憶體護衛：資料庫讀取快取 (大幅減輕硬碟 I/O 負擔)
 # ==========================================
-@st.cache_data(ttl=60, show_spinner=False)  # 快取 60 秒，期間重複整理不消耗額外記憶體與硬碟
+@st.cache_data(ttl=30, show_spinner=False)
 def fetch_core_data_cached():
     conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
     c = conn.cursor()
@@ -76,7 +76,7 @@ def inject_watermark(text):
     return "".join(result)
 
 # ==========================================
-# ⚡ Gemini 金鑰安全讀取與初始化 (⚡ 快取優化版：避免每次按鈕都重新初始化)
+# 🔐 Gemini 金鑰安全讀取與初始化 (快取避免重複初始化)
 # ==========================================
 @st.cache_resource
 def init_gemini_cached():
@@ -93,21 +93,6 @@ def init_gemini_cached():
     return False
 
 has_gemini = init_gemini_cached()
-
-# ==========================================
-# ⚡ 靈魂金句生成快取魔法 (⚡ 核心提速：相同文章不再重複呼叫 Gemini 浪費時間)
-# ==========================================
-@st.cache_data(show_spinner=False)
-def generate_verse_cached(title, content, _has_gemini):
-    if not _has_gemini or title == "無" or not content:
-        return "水煙裊裊，字裡行間皆是光陰。"
-    try:
-        model_verse = genai.GenerativeModel("gemini-2.5-flash")
-        verse_prompt = f"你是一個深邃的文學家。請閱讀以下作品，為其創作成一句不超過20個字、極具詩意與畫面感的靈魂金句。不要任何解釋 and 標點符號：\n書名：《{title}》\n內容：\n{content[:500]}"
-        completion_verse = model_verse.generate_content(verse_prompt)
-        return completion_verse.text.strip().replace("「","").replace("」","")
-    except:
-        return "水煙裊裊，字裡行間皆是光陰。"
 
 # ==========================================
 # 🐈 圖片與 Banner 記憶快取魔法
@@ -239,7 +224,7 @@ st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
 # ==========================================
-# 3. 撈出全局核心資料 (🚀 快取優化：從內存直接讀，不重組對象)
+# 3. 撈出全局核心資料 (使用內存快取，杜絕磁碟 I/O 塞車)
 # ==========================================
 CHAHU_PROMPT_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
 
@@ -281,8 +266,8 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-# ⚡ 快取加速呼叫：相同文章的金句直接由記憶體秒讀
-st.session_state[f"verse_{active_title}"] = generate_verse_cached(active_title, active_content, has_gemini)
+# 🚀 徹底切除 Gemini 金句生成：改用店長親定文青招牌句，0 毫秒執行完畢
+st.session_state[f"verse_{active_title}"] = "水煙裊裊，字裡行間皆是光陰。"
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
@@ -427,7 +412,7 @@ with tab1:
                                     c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
                                     conn.commit()
                                     conn.close()
-                                    st.cache_data.clear() # 🚀 強制刷新全局資料快取以顯示新留言
+                                    st.cache_data.clear()
                             except:
                                 st.session_state.touyuan_feedback = "thank you"
                 st.rerun()
@@ -476,7 +461,7 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            # 🛡️ 記憶體防護罩：聊天歷史只保留最近 10 次，防止對話文字像雪球一樣無限增大撐爆 512MB
+            # 🛡️ 限制對話歷史長度，防止 Render OOM 崩潰
             if len(st.session_state.messages) > 10:
                 st.session_state.messages = st.session_state.messages[-10:]
                 
@@ -492,7 +477,7 @@ with tab1:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
                     
-                    # 🚀 記憶體降脂優化：只傳給 AI 前 800 字的內文精華，避免把幾萬字的小說一次全部塞進對話 context 壓垮內存
+                    # 🚀 只傳前 800 字內文給 AI 聊天，省 Token 又省記憶體
                     current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
                     
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
@@ -561,8 +546,6 @@ with tab2:
             c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
             conn.commit()
             conn.close()
-            
-            # 🔥 清除快取，確保新靈魂能立刻套用
             st.cache_data.clear()
             st.success("✨ RNA 翻新成功！已同步刷新大腦記憶庫！")
             st.rerun()
@@ -580,7 +563,7 @@ with tab2:
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
                     conn.close()
-                    st.cache_data.clear() # 🚀 上架後刷新快取
+                    st.cache_data.clear()
                     st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
@@ -600,7 +583,7 @@ with tab2:
                         c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item['title'], item['content'], item.get('is_poem', 0)))
                 conn.commit()
                 conn.close()
-                st.cache_data.clear() # 🚀 還原後刷新快取
+                st.cache_data.clear()
                 st.success("🎉 全店館藏已滿血復活！")
                 st.rerun()
             except Exception as ex:
@@ -613,7 +596,7 @@ with tab2:
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
-            st.cache_data.clear() # 🚀 清空投緣牆後刷新快取
+            st.cache_data.clear()
             st.rerun()
             
         for bk in all_books_list:
@@ -628,5 +611,5 @@ with tab2:
                     c.execute("DELETE FROM books WHERE id=?", (bk_id,))
                     conn.commit()
                     conn.close()
-                    st.cache_data.clear() # 🚀 下架後刷新快取
+                    st.cache_data.clear()
                     st.rerun()
