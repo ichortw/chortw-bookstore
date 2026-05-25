@@ -409,7 +409,7 @@ with tab1:
             
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣寫一句 20 字就好", max_chars=100)
+            visitor_input = st.text_input("有緣寫一句 20 字就好 🐈", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
@@ -478,6 +478,7 @@ with tab1:
         else:
             avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu1.gif 放至同資料夾</div>'
 
+        # 🪐 完美的視覺純淨改動：拿掉了原先顯示目前思維模式的那行 HTML 程式碼
         st.markdown(f"""
             <div class="chahu-minimal-area">
                 <div class="avatar-area">
@@ -488,7 +489,6 @@ with tab1:
                 </div>
                 <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
                 <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
-                <div style="font-size:11px; color:#9c8c7c; margin-top:4px;">💡 目前思維模式：{st.session_state.chahu_selected_brain}</div>
             </div>
         """, unsafe_allow_html=True)
         
