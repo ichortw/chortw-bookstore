@@ -409,7 +409,7 @@ with tab1:
             
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣寫一句 20 字就好 🐈", max_chars=100)
+            visitor_input = st.text_input("有緣寫句 20 字就好 🐈", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
@@ -569,7 +569,7 @@ with tab1:
                         groq_messages.append({"role": "user", "content": user_chat})
                         
                         payload = {
-                            "model": "llama3-70b-8192",
+                            "model": "llama-3.3-70b-versatile",  # 👈 核心修正：升級為官方現行支援的模型，完美解決 400 錯誤！
                             "messages": groq_messages,
                             "temperature": 0.7,
                             "max_tokens": 400
