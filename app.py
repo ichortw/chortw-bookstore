@@ -29,8 +29,10 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS memo 
                  (id INTEGER PRIMARY KEY, content TEXT)''')
     c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
+    
+    # 🧠 大腦資料表升級：確保具備儲存「當前使用大腦」的欄位
     c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
-                 (id INTEGER PRIMARY KEY, prompt TEXT)''')
+                 (id INTEGER PRIMARY KEY, prompt TEXT, active_brain TEXT DEFAULT 'Google Gemini')''')
     
     default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專注、帶著300%的好奇看著來訪客人。
 你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵藏書閣的唯一書僮小貓。
@@ -43,7 +45,17 @@ def init_db():
 [[OPEN_BOOK:作品名稱]]
 例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
     
-    c.execute("INSERT OR IGNORE INTO chahu_brain (id, prompt) VALUES (1, ?)", (default_prompt,))
+    # 檢查是否需要初始資料
+    c.execute("SELECT id FROM chahu_brain WHERE id=1")
+    if not c.fetchone():
+        c.execute("INSERT INTO chahu_brain (id, prompt, active_brain) VALUES (1, ?, 'Google Gemini')", (default_prompt,))
+    else:
+        # 🛡️ 舊相容防禦：如果以前開過舊表但沒 active_brain 欄位，自動幫店長升級補上
+        try:
+            c.execute("ALTER TABLE chahu_brain ADD COLUMN active_brain TEXT DEFAULT 'Google Gemini'")
+        except sqlite3.OperationalError:
+            pass # 代表欄位早點存在了，跳過
+            
     conn.commit()
     conn.close()
 
@@ -52,18 +64,21 @@ init_db()
 # ==========================================
 # ⚡ 記憶體護衛：資料庫讀取快取 (大幅減輕硬碟 I/O 負擔)
 # ==========================================
-@st.cache_data(ttl=30, show_spinner=False)
+@st.cache_data(ttl=5, show_spinner=False) # 調整快取為 5 秒，確保後台變更即時反應
 def fetch_core_data_cached():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
-    c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
-    prompt = c.fetchone()[0]
+    c.execute("SELECT prompt, active_brain FROM chahu_brain WHERE id=1")
+    row = c.fetchone()
+    prompt = row[0]
+    db_selected_brain = row[1] if row[1] else "Google Gemini"
+    
     c.execute("SELECT id, title, content, is_poem FROM books")
     books = c.fetchall()
     c.execute("SELECT content FROM stamps ORDER BY id DESC") 
     stamps = [r[0] for r in c.fetchall()]
     conn.close()
-    return prompt, books, stamps
+    return prompt, db_selected_brain, books, stamps
 
 # ==========================================
 # 🛡️ IP 版權護衛演算法：零寬度隱形浮水印 (Zero-Width Watermark)
@@ -170,16 +185,14 @@ st.components.v1.html("""
 
 st.markdown(f"""
     <style>
-    /* 🚀 頂部破防優化：消滅 Streamlit 頂部預設空白 */
     .block-container {{
-        padding-top: 0rem !important;  /* 👈 頂部完全貼頂 */
+        padding-top: 0rem !important;  
         padding-bottom: 2rem !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         max-width: 100% !important;
     }}
 
-    /* 🚀 頂部破防優化：徹底壓扁 Streamlit 官方隱形 Header 區塊 */
     header[data-testid="stHeader"] {{
         visibility: hidden !important;
         height: 0px !important;
@@ -187,7 +200,6 @@ st.markdown(f"""
         pointer-events: none !important; 
     }}
 
-    /* 🚀 頂部破防優化：Banner 調整，使其上直角貼頂、下維持優雅圓角 */
     .zhuoji-banner {{
         background-image: url('data:image/jpeg;base64,{banner_base64}');
         background-size: cover;
@@ -195,9 +207,9 @@ st.markdown(f"""
         background-repeat: no-repeat;
         width: 100%;
         height: 220px;
-        border-radius: 0px 0px 8px 8px; /* 👈 上平下圓，完美貼頂 */
+        border-radius: 0px 0px 8px 8px; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-        margin-top: 0px !important;     /* 👈 確保上方絕不留白 */
+        margin-top: 0px !important;     
         margin-bottom: 25px;
         display: flex;
         align-items: center;
@@ -205,9 +217,6 @@ st.markdown(f"""
         background-color: #e8ded1;
     }}
     
-    /* ========================================== */
-    /* 🔒 店長核心防禦與視覺靈魂樣式一字未動 */
-    /* ========================================== */
     .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {{
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
@@ -264,7 +273,7 @@ st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 # ==========================================
 # 3. 撈出全局核心資料 (使用內存快取，杜絕磁碟 I/O 塞車)
 # ==========================================
-CHAHU_PROMPT_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
+CHAHU_PROMPT_FROM_DB, CURRENT_ACTIVE_BRAIN_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
 
 if "sync_rerun_key" not in st.session_state:
     st.session_state.sync_rerun_key = 0
@@ -288,9 +297,8 @@ if "chat_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 初始化大腦選擇狀態，預設為 Google Gemini
-if "chahu_selected_brain" not in st.session_state:
-    st.session_state.chahu_selected_brain = "Google Gemini"
+# 🧠 核心修正：大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
+st.session_state.chahu_selected_brain = CURRENT_ACTIVE_BRAIN_FROM_DB
 
 active_title = st.session_state.current_book_title
 active_content = "目前書架沒有任何書籍。"
@@ -409,7 +417,7 @@ with tab1:
             
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣寫句 20 字就好 🐈", max_chars=100)
+            visitor_input = st.text_input("有緣寫句 20 字留下 🐈", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
@@ -478,7 +486,6 @@ with tab1:
         else:
             avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu1.gif 放至同資料夾</div>'
 
-        # 🪐 完美的視覺純淨改動：拿掉了原先顯示目前思維模式的那行 HTML 程式碼
         st.markdown(f"""
             <div class="chahu-minimal-area">
                 <div class="avatar-area">
@@ -512,7 +519,6 @@ with tab1:
             match = None  
             current_brain = st.session_state.chahu_selected_brain
             
-            # --- 驗證金鑰保護防線 ---
             if current_brain == "Google Gemini" and not has_gemini:
                 chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認環境變數裡有沒有填對 `GEMINI_API_KEY` 喔！"
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
@@ -540,7 +546,6 @@ with tab1:
                     else:
                         dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
-                    # === 🧠 雙軌大腦決策引擎 ===
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
                             model_name="gemini-2.5-flash",
@@ -556,7 +561,6 @@ with tab1:
                         chahu_reply = response.text
                     
                     elif current_brain == "Groq (Llama-3)":
-                        # 使用 requests 極速調度 Groq API，極致節省主機內存
                         groq_url = "https://api.groq.com/openai/v1/chat/completions"
                         groq_headers = {
                             "Authorization": f"Bearer {groq_api_key}",
@@ -569,7 +573,7 @@ with tab1:
                         groq_messages.append({"role": "user", "content": user_chat})
                         
                         payload = {
-                            "model": "llama-3.3-70b-versatile",  # 👈 核心修正：升級為官方現行支援的模型，完美解決 400 錯誤！
+                            "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
                             "max_tokens": 400
@@ -581,7 +585,6 @@ with tab1:
                         else:
                             chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
 
-                    # 🔍 隔空翻書辨識
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
                         book_open_title = match.group(1).strip()
@@ -596,7 +599,6 @@ with tab1:
                 except Exception as e:
                     chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
                 finally:
-                    # 🧹 強制發動記憶體回收，阻斷 OOM 噩夢
                     gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
@@ -615,7 +617,7 @@ with tab2:
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
         
-        # --- 🧠 核心升級：店長專屬雙大腦人手閘刀 ---
+        # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦（切換不消耗任何 API 流量）：",
@@ -623,9 +625,18 @@ with tab2:
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1,
             horizontal=True
         )
+        
+        # 核心改動：當店長切換開關時，直接同步寫入 SQLite 資料庫中
         if chosen_brain != st.session_state.chahu_selected_brain:
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            c = conn.cursor()
+            c.execute("UPDATE chahu_brain SET active_brain=? WHERE id=1", (chosen_brain,))
+            conn.commit()
+            conn.close()
+            
             st.session_state.chahu_selected_brain = chosen_brain
-            st.toast(f"🧠 大腦核心已成功人手切換至：{chosen_brain}！")
+            st.cache_data.clear() # 刷清快取
+            st.toast(f"🧠 大腦核心已成功「永久儲存」至資料庫：{chosen_brain}！")
             st.rerun()
             
         st.markdown("---")
