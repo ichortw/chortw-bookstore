@@ -267,7 +267,7 @@ elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
 # 🚀 徹底切除 Gemini 金句生成：改用店長親定文青招牌句，0 毫秒執行完畢
-st.session_state[f"verse_{active_title}"] = "水煙裊裊，字裡行間皆是光陰。"
+st.session_state[f"verse_{active_title}"] = "桌記書店。"
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
@@ -297,7 +297,7 @@ with tab1:
                 st.rerun()
                 
             idx = shuffled_titles.index(active_title)
-            st.markdown(f"**✨ {st.session_state[verse_key]}**")
+            st.markdown(f"**📚 {st.session_state[verse_key]}**")
             
             selected_title = st.selectbox(
                 "隱藏標籤選單：", 
@@ -366,12 +366,12 @@ with tab1:
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             st.markdown("---")
             
-        st.subheader("🧱 投緣牆")
+        st.subheader("🧱 緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣的話，你寫一句茶壼喜歡的句子投進這格子，別多過20字就好，真的讓她喜歡便會幫你貼上投緣牆，她說要給句子們結集成詩啊，來吧！", max_chars=100)
+            visitor_input = st.text_input("有緣的話寫一句投進來，20字就好", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
-            bot_trap_input = st.text_input("這一罐捕蟲蜜糖只招待機器人🍯", key="chahu_honeypot_trap_key", value="")
+            bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
             submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
@@ -534,8 +534,8 @@ with tab1:
 # 【分頁二：管理員後台（藏書閣）】
 # ==========================================
 with tab2:
-    st.header("⚙️ 作品上架與管理系統")
-    admin_password = st.text_input("🔑 請輸入店長管理密碼", type="password")
+    st.header("⚙️ 傾聽柔柔飄雪")
+    admin_password = st.text_input("🔑 如夜色平靜", type="password")
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
