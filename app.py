@@ -136,8 +136,8 @@ def load_assets_cached():
     mime_type = "image/jpeg"
     banner_base64 = ""
     
-    if os.path.exists("chahu1.gif"):
-        with open("chahu1.gif", "rb") as image_file:
+    if os.path.exists("chahu2.gif"):
+        with open("chahu2.gif", "rb") as image_file:
             img_base64 = base64.b64encode(image_file.read()).decode()
             mime_type = "image/gif"
     elif os.path.exists("chahu.jpg"):
@@ -484,7 +484,7 @@ with tab1:
         if img_base64:
             avatar_html = f'<img src="data:{mime_type};base64,{img_base64}" class="chahu-photo">'
         else:
-            avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu1.gif 放至同資料夾</div>'
+            avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu2.gif 放至同資料夾</div>'
 
         st.markdown(f"""
             <div class="chahu-minimal-area">
