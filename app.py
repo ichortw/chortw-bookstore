@@ -5,6 +5,8 @@ import random
 import json
 import re
 import os
+import gc
+import requests
 from datetime import datetime
 import google.generativeai as genai
 import base64
@@ -76,7 +78,7 @@ def inject_watermark(text):
     return "".join(result)
 
 # ==========================================
-# 🔐 Gemini 金鑰安全讀取與初始化 (快取避免重複初始化)
+# 🔐 雙大腦金鑰安全檢測與初始化
 # ==========================================
 @st.cache_resource
 def init_gemini_cached():
@@ -92,7 +94,18 @@ def init_gemini_cached():
         return True
     return False
 
+def get_groq_api_key():
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        try:
+            if "GROQ_API_KEY" in st.secrets:
+                api_key = st.secrets["GROQ_API_KEY"]
+        except:
+            pass
+    return api_key
+
 has_gemini = init_gemini_cached()
+groq_api_key = get_groq_api_key()
 
 # ==========================================
 # 🐈 圖片與 Banner 記憶快取魔法
@@ -115,16 +128,22 @@ def load_assets_cached():
     if os.path.exists("banner.gif"):
         with open("banner.gif", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
+    elif os.path.exists("banner.jpg"):
+        with open("banner.jpg", "rb") as banner_file:
+            banner_base64 = base64.b64encode(banner_file.read()).decode()
             
     return img_base64, mime_type, banner_base64
 
 img_base64, mime_type, banner_base64 = load_assets_cached()
 
 # ==========================================
-# 🔒 全局 CSS 視覺注入與安全防禦
+# 🔒 全局 📄 網頁佈局配置
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
+# ==========================================
+# 🚀 注入 SEO 與 🎨 頂部無縫完美貼頂 CSS
+# ==========================================
 st.components.v1.html("""
     <script>
         var metaKeywords = window.parent.document.createElement('meta');
@@ -146,6 +165,24 @@ st.components.v1.html("""
 
 st.markdown(f"""
     <style>
+    /* 🚀 頂部破防優化：消滅 Streamlit 頂部預設空白 */
+    .block-container {{
+        padding-top: 0rem !important;  /* 👈 頂部完全貼頂 */
+        padding-bottom: 2rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 100% !important;
+    }}
+
+    /* 🚀 頂部破防優化：徹底壓扁 Streamlit 官方隱形 Header 區塊 */
+    header[data-testid="stHeader"] {{
+        visibility: hidden !important;
+        height: 0px !important;
+        background-color: transparent !important;
+        pointer-events: none !important; 
+    }}
+
+    /* 🚀 頂部破防優化：Banner 調整，使其上直角貼頂、下維持優雅圓角 */
     .zhuoji-banner {{
         background-image: url('data:image/jpeg;base64,{banner_base64}');
         background-size: cover;
@@ -153,8 +190,9 @@ st.markdown(f"""
         background-repeat: no-repeat;
         width: 100%;
         height: 220px;
-        border-radius: 8px;
+        border-radius: 0px 0px 8px 8px; /* 👈 上平下圓，完美貼頂 */
         box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        margin-top: 0px !important;     /* 👈 確保上方絕不留白 */
         margin-bottom: 25px;
         display: flex;
         align-items: center;
@@ -162,6 +200,9 @@ st.markdown(f"""
         background-color: #e8ded1;
     }}
     
+    /* ========================================== */
+    /* 🔒 店長核心防禦與視覺靈魂樣式一字未動 */
+    /* ========================================== */
     .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {{
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
@@ -173,14 +214,6 @@ st.markdown(f"""
         display: none !important;
     }}
     
-    .block-container {{
-        padding-top: 1.5rem !important;
-        padding-bottom: 2rem !important;
-    }}
-    header[data-testid="stHeader"] {{
-        background-color: transparent !important;
-        pointer-events: none !important; 
-    }}
     div[data-testid="stStatusWidget"],
     .stDeployButton,
     button[data-testid="baseButton-header"],
@@ -250,6 +283,10 @@ if "chat_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
+# 🧠 初始化大腦選擇狀態，預設為 Google Gemini
+if "chahu_selected_brain" not in st.session_state:
+    st.session_state.chahu_selected_brain = "Google Gemini"
+
 active_title = st.session_state.current_book_title
 active_content = "目前書架沒有任何書籍。"
 active_is_poem = 0
@@ -266,7 +303,6 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-# 🚀 徹底切除 Gemini 金句生成：改用店長親定文青招牌句，0 毫秒執行完畢
 st.session_state[f"verse_{active_title}"] = "桌記書店。"
 verse_key = f"verse_{active_title}"
 
@@ -447,6 +483,7 @@ with tab1:
                 </div>
                 <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
                 <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
+                <div style="font-size:11px; color:#9c8c7c; margin-top:4px;">💡 目前思維模式：{st.session_state.chahu_selected_brain}</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -461,7 +498,6 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            # 🛡️ 限制對話歷史長度，防止 Render OOM 崩潰
             if len(st.session_state.messages) > 10:
                 st.session_state.messages = st.session_state.messages[-10:]
                 
@@ -469,15 +505,17 @@ with tab1:
                 st.write(user_chat)
                 
             match = None  
+            current_brain = st.session_state.chahu_selected_brain
             
-            if not has_gemini:
-                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認 Render 的 Environment Variables 裡有沒有填對 `GEMINI_API_KEY` 喔！"
+            # --- 驗證金鑰保護防線 ---
+            if current_brain == "Google Gemini" and not has_gemini:
+                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認環境變數裡有沒有填對 `GEMINI_API_KEY` 喔！"
+            elif current_brain == "Groq (Llama-3)" and not groq_api_key:
+                chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
-                    
-                    # 🚀 只傳前 800 字內文給 AI 聊天，省 Token 又省記憶體
                     current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
                     
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
@@ -497,20 +535,48 @@ with tab1:
                     else:
                         dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
-                    model_chat = genai.GenerativeModel(
-                        model_name="gemini-2.5-flash",
-                        system_instruction=dynamic_system_prompt
-                    )
+                    # === 🧠 雙軌大腦決策引擎 ===
+                    if current_brain == "Google Gemini":
+                        model_chat = genai.GenerativeModel(
+                            model_name="gemini-2.5-flash",
+                            system_instruction=dynamic_system_prompt
+                        )
+                        gemini_history = []
+                        for msg in st.session_state.messages[:-1]:
+                            role = "user" if msg["role"] == "user" else "model"
+                            gemini_history.append({"role": role, "parts": [msg["content"]]})
+                        
+                        chat_session = model_chat.start_chat(history=gemini_history)
+                        response = chat_session.send_message(user_chat)
+                        chahu_reply = response.text
                     
-                    gemini_history = []
-                    for msg in st.session_state.messages[:-1]:
-                        role = "user" if msg["role"] == "user" else "model"
-                        gemini_history.append({"role": role, "parts": [msg["content"]]})
-                    
-                    chat_session = model_chat.start_chat(history=gemini_history)
-                    response = chat_session.send_message(user_chat)
-                    chahu_reply = response.text
-                    
+                    elif current_brain == "Groq (Llama-3)":
+                        # 使用 requests 極速調度 Groq API，極致節省主機內存
+                        groq_url = "https://api.groq.com/openai/v1/chat/completions"
+                        groq_headers = {
+                            "Authorization": f"Bearer {groq_api_key}",
+                            "Content-Type": "application/json"
+                        }
+                        
+                        groq_messages = [{"role": "system", "content": dynamic_system_prompt}]
+                        for msg in st.session_state.messages[:-1]:
+                            groq_messages.append({"role": msg["role"], "content": msg["content"]})
+                        groq_messages.append({"role": "user", "content": user_chat})
+                        
+                        payload = {
+                            "model": "llama3-70b-8192",
+                            "messages": groq_messages,
+                            "temperature": 0.7,
+                            "max_tokens": 400
+                        }
+                        
+                        groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
+                        if groq_res.status_code == 200:
+                            chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
+                        else:
+                            chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
+
+                    # 🔍 隔空翻書辨識
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
                         book_open_title = match.group(1).strip()
@@ -521,8 +587,12 @@ with tab1:
                                 st.session_state.sync_rerun_key += 1
                                 st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                                 break
+                                
                 except Exception as e:
                     chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
+                finally:
+                    # 🧹 強制發動記憶體回收，阻斷 OOM 噩夢
+                    gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
@@ -539,6 +609,22 @@ with tab2:
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
+        
+        # --- 🧠 核心升級：店長專屬雙大腦人手閘刀 ---
+        st.subheader("🧠 茶壺小貓核心思維切換")
+        chosen_brain = st.radio(
+            "請為茶壺選擇思維核心大腦（切換不消耗任何 API 流量）：",
+            ["Google Gemini", "Groq (Llama-3)"],
+            index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1,
+            horizontal=True
+        )
+        if chosen_brain != st.session_state.chahu_selected_brain:
+            st.session_state.chahu_selected_brain = chosen_brain
+            st.toast(f"🧠 大腦核心已成功人手切換至：{chosen_brain}！")
+            st.rerun()
+            
+        st.markdown("---")
+        
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
             conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
