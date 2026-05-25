@@ -12,10 +12,15 @@ import google.generativeai as genai
 import base64
 
 # ==========================================
+# 🏠 雲端保險箱配置：全面指定 Render 永久硬碟路徑
+# ==========================================
+DB_PATH = '/data/zhuoji_books.db'
+
+# ==========================================
 # 1. 初始化資料庫 (確保所有表格與預設提示詞存在，全面加上 SQLite 跨執行緒防禦)
 # ==========================================
 def init_db():
-    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS books 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
@@ -49,7 +54,7 @@ init_db()
 # ==========================================
 @st.cache_data(ttl=30, show_spinner=False)
 def fetch_core_data_cached():
-    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT prompt FROM chahu_brain WHERE id=1")
     prompt = c.fetchone()[0]
@@ -303,7 +308,7 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-st.session_state[f"verse_{active_title}"] = "桌記書店。"
+st.session_state[f"verse_{active_title}"] = "桌記書店"
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
@@ -314,7 +319,7 @@ if st.session_state.scroll_to_top_trigger:
     """, height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 書閣"])
+tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 雪櫃"])
 
 # ==========================================
 # 【分頁一：雲端書館與美短貓陪讀】
@@ -402,9 +407,9 @@ with tab1:
             st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
             st.markdown("---")
             
-        st.subheader("🧱 緣牆")
+        st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣的話寫一句投進來，20字就好", max_chars=100)
+            visitor_input = st.text_input("有緣寫一句，20字就好", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
@@ -443,7 +448,7 @@ with tab1:
                                 st.session_state.touyuan_feedback = res_json["reply"]
                                     
                                 if res_json["passed"]:
-                                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+                                    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                                     c = conn.cursor()
                                     c.execute("INSERT INTO stamps (content, created_at) VALUES (?, ?)", (visitor_input, datetime.now().strftime("%Y-%m-%d %H:%M")))
                                     conn.commit()
@@ -627,7 +632,7 @@ with tab2:
         
         updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
         if st.button("🧬 注入全新靈魂印記"):
-            conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
             conn.commit()
@@ -644,7 +649,7 @@ with tab2:
             
             if st.button("確認上架"):
                 if new_title and new_content:
-                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+                    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()  
                     c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (new_title, new_content, 1 if is_poem_checked else 0))
                     conn.commit()
@@ -661,7 +666,7 @@ with tab2:
         if uploaded_backup is not None and st.button("⚡ 確認執行全面還原"):
             try:
                 restore_data = json.load(uploaded_backup)
-                conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+                conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                 c = conn.cursor()
                 for item in restore_data:
                     c.execute("SELECT id FROM books WHERE title=?", (item['title'],))
@@ -677,7 +682,7 @@ with tab2:
         
         st.markdown("---")
         if st.button("🗑️ 清空投緣牆"):
-            conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+            conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("DELETE FROM stamps")
             conn.commit()
@@ -692,7 +697,7 @@ with tab2:
                 st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
             with col2:
                 if st.button("下架", key=f"del_{bk_id}"):
-                    conn = sqlite3.connect('zhuoji_books.db', check_same_thread=False)
+                    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()
                     c.execute("DELETE FROM books WHERE id=?", (bk_id,))
                     conn.commit()
