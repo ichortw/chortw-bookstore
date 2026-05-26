@@ -39,7 +39,7 @@ def init_db():
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我labels。
+1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我標籤。
 2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
@@ -168,7 +168,7 @@ st.components.v1.html("""
     <script>
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
+        metaKeywords.content = "桌記書店, 桌子記, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
 
         var metaDesc = window.parent.document.createElement('meta');
@@ -248,10 +248,7 @@ st.markdown(f"""
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    
-    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
-    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-    
+    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -319,7 +316,7 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-st.session_state[f"verse_{active_title}"] = "桌記書店"
+st.session_state[f"verse_{active_title}"] = "桌記的書"
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
@@ -330,7 +327,7 @@ if st.session_state.scroll_to_top_trigger:
     """, height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-tab1, tab2 = st.tabs(["🍵 茶座", "⚙️ 雪櫃"])
+tab1, tab2 = st.tabs(["🍵 茶座", "🪟 雪櫃"])
 
 # ==========================================
 # 【分頁一：雲端書館與美短貓陪讀】
@@ -420,13 +417,13 @@ with tab1:
             
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣寫句 20 字留下 🐈", max_chars=100)
+            visitor_input = st.text_input("有緣寫句留下 20字 🐈", max_chars=100)
             
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("✨ 投緣", help="還想，投吧！")
+            submitted = st.form_submit_button("✨ 留緣", help="來，寫吧！")
             
             if submitted and visitor_input:
                 if bot_trap_input:
@@ -509,7 +506,7 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', msg["content"]))
                 
-        if user_chat := st.chat_input("你要看什麼書呀？"):
+        if user_chat := st.chat_input("啊，你來了！我閃"):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
@@ -611,7 +608,7 @@ with tab1:
                     st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（雪櫃）】
+# 【分頁二：管理員後台（藏書閣）】
 # ==========================================
 with tab2:
     st.header("⚙️ 傾聽柔柔飄雪")
@@ -623,7 +620,7 @@ with tab2:
         # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
-            "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
+            "請為茶壺選擇思維核心大腦（切換不消耗任何 API 流量）：",
             ["Google Gemini", "Groq (Llama-3)"],
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1,
             horizontal=True
@@ -695,7 +692,7 @@ with tab2:
                 st.error(f"還原失敗：{str(ex)}")
         
         st.markdown("---")
-        if st.button("🗑️ 清空留緣牆"):
+        if st.button("🗑️ 清空投緣牆"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("DELETE FROM stamps")
