@@ -145,8 +145,8 @@ def load_assets_cached():
             img_base64 = base64.b64encode(image_file.read()).decode()
             mime_type = "image/jpeg"
             
-    if os.path.exists("banner.gif"):
-        with open("banner.gif", "rb") as banner_file:
+    if os.path.exists("banner.jpg"):
+        with open("banner.jpg", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
     elif os.path.exists("banner.jpg"):
         with open("banner.jpg", "rb") as banner_file:
