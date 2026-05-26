@@ -401,7 +401,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📦 再翻箱", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
+                        if st.button("📖 再翻書", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
