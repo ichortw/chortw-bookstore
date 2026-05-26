@@ -249,8 +249,8 @@ st.markdown(f"""
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
-    /* 🐈 核心修正：將貓咪頭像加大 1.5 倍 (160px -> 240px) */
-    .chahu-photo {{ width: 240px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
+    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
@@ -623,7 +623,7 @@ with tab2:
         # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
-            "請為茶壺選擇思維核心大腦（切換不消耗任何 API 流量）：",
+            "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
             ["Google Gemini", "Groq (Llama-3)"],
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1,
             horizontal=True
