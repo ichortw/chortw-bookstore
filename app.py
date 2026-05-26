@@ -17,9 +17,10 @@ import base64
 DB_PATH = '/data/zhuoji_books.db'
 
 # ==========================================
-# 1. 初始化資料庫 (確保所有表格與預設提示詞存在，全面加上 SQLite 跨執行緒防禦)
+# ⚡ 火箭超速護盾：初始化資料庫 (開機只跑一次，徹底消滅冷啟動空白卡頓)
 # ==========================================
-def init_db():
+@st.cache_resource
+def init_db_once():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS books 
@@ -58,8 +59,10 @@ def init_db():
             
     conn.commit()
     conn.close()
+    return True
 
-init_db()
+# 在全域默默且迅速地執行超速護盾，不再擋讀者的開頁畫面
+_ = init_db_once()
 
 # ==========================================
 # ⚡ 記憶體護衛：資料庫讀取快取 (大幅減輕硬碟 I/O 負擔)
@@ -128,7 +131,7 @@ has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
 # ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法
+# 🐈 圖片與 Banner 記憶快取魔法 (已針對店長的 JPG 進行精準檔名校正)
 # ==========================================
 @st.cache_data
 def load_assets_cached():
@@ -139,16 +142,13 @@ def load_assets_cached():
     if os.path.exists("chahu3.jpg"):
         with open("chahu3.jpg", "rb") as image_file:
             img_base64 = base64.b64encode(image_file.read()).decode()
-            mime_type = "image/gif"
-    elif os.path.exists("chahu.jpg"):
-        with open("chahu.jpg", "rb") as image_file:
+            mime_type = "image/jpeg"
+    elif os.path.exists("chahu3.jpg"):
+        with open("chahu3.jpg", "rb") as image_file:
             img_base64 = base64.b64encode(image_file.read()).decode()
             mime_type = "image/jpeg"
             
     if os.path.exists("banner.jpg"):
-        with open("banner.jpg", "rb") as banner_file:
-            banner_base64 = base64.b64encode(banner_file.read()).decode()
-    elif os.path.exists("banner.jpg"):
         with open("banner.jpg", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
             
