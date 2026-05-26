@@ -39,7 +39,7 @@ def init_db():
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我標籤。
+1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我labels。
 2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
@@ -248,7 +248,10 @@ st.markdown(f"""
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 160px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+    
+    /* 🐈 核心修正：將貓咪頭像加大 1.5 倍 (160px -> 240px) */
+    .chahu-photo {{ width: 240px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+    
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -608,7 +611,7 @@ with tab1:
                     st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（藏書閣）】
+# 【分頁二：管理員後台（雪櫃）】
 # ==========================================
 with tab2:
     st.header("⚙️ 傾聽柔柔飄雪")
@@ -692,7 +695,7 @@ with tab2:
                 st.error(f"還原失敗：{str(ex)}")
         
         st.markdown("---")
-        if st.button("🗑️ 清空投緣牆"):
+        if st.button("🗑️ 清空留緣牆"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("DELETE FROM stamps")
