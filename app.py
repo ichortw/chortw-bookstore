@@ -500,8 +500,9 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            if len(st.session_state.messages) > 10:
-                st.session_state.messages = st.session_state.messages[-10:]
+            # ✂️ 核心節食手術 2：對話歷史紀錄下調到 6 輪
+            if len(st.session_state.messages) > 6:
+                st.session_state.messages = st.session_state.messages[-6:]
                 
             with st.chat_message("user"):
                 st.write(user_chat)
@@ -512,17 +513,18 @@ with tab1:
             if current_brain == "Google Gemini" and not has_gemini:
                 chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認環境變數裡有沒有填對 `GEMINI_API_KEY` 喔！"
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
-                chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
+                chahu_reply = "😮‍💨 喵嗚... 我聞不會 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
-                    current_work_content_chunk = active_content
                     
-                    # 🐈 完美改回上一版：移除前 2 輪 30 字的死命令限制，開啟完整有趣的 ESFP 模式！
+                    # ✂️ 核心節食手術 1：將帶入大腦的當前書籍內文字數直接對半砍到 400 字
+                    current_work_content_chunk = active_content[:400]
+                    
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
 【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
-作品內文如下：
+作品內文如下（已精簡傳輸）：
 {current_work_content_chunk}
 
 【茶壺行為最高指令】：
@@ -598,7 +600,7 @@ with tab2:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
-    if admin_password == "Pint2012echo":
+    if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
         # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
@@ -652,7 +654,7 @@ with tab2:
                     st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
-        # 🛠️ 核心修復2：將「館藏備份與還原」完全移到與 [上架新作品] 同等平級的獨立層級，修復點擊沒反應、不彈出功能的問題
+        # 🛡️ 館藏備份與還原
         st.markdown("---")
         st.subheader("🛡️ 館藏備份與還原")
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
@@ -700,3 +702,4 @@ with tab2:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
+}
