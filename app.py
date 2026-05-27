@@ -515,29 +515,21 @@ with tab1:
                 chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
-                    is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
                     
                     # 📉 【對話脈絡瘦身】：當前書籍內文字數切到 400 字
                     current_work_content_chunk = active_content[:400] + (" ... (餘下篇幅省略)" if len(active_content) > 400 else "")
                     
-                    # 📉 【茶壺字數強制壓制】：絕對指令限制 30 字以內，省去 WebSocket 廢話流
+                    # 🐈 【茶壺對話長度限制已還原】：移除了上一版的「30字內」嚴格限制死命令
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
-
 
 【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
 作品內文如下：
 {current_work_content_chunk}
 
 【茶壺行為最高指令】：
-1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
-2. 【核心限字最高死命令】：切記！不論在什麼情況下，你的回覆長度都「絕對、嚴格限制在 30 個字以內」！多說任何一個字店長就會扣你三天罐罐！長話短說，一針見血！
-3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
-
-                    if is_slow_warmup:
-                        dynamic_system_prompt += "\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
-                    else:
-                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，但牢記仍不可超過 30 字的絕對鐵律！"
+1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出回覆，順便幫忙銳利地抓出錯別字。
+2. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
 
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
@@ -569,7 +561,7 @@ with tab1:
                             "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
-                            "max_tokens": 120
+                            "max_tokens": 400
                         }
                         
                         groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
