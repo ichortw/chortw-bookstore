@@ -55,7 +55,7 @@ def init_db_once():
         try:
             c.execute("ALTER TABLE chahu_brain ADD COLUMN active_brain TEXT DEFAULT 'Google Gemini'")
         except sqlite3.OperationalError:
-            pass # 代表欄位早就存在了，跳過
+            pass # 代表欄位早點存在了，跳過
             
     conn.commit()
     conn.close()
@@ -131,7 +131,7 @@ has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
 # ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法 (外接 GIF 徹底釋放 Render HTTP 頻寬)
+# 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
 # ==========================================
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 
@@ -148,7 +148,7 @@ banner_base64 = load_assets_cached()
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
 # ==========================================
-st.set_page_config(page_title="桌記咖啡店", layout="wide")
+st.set_page_config(page_title="桌記書店", layout="wide")
 
 # ==========================================
 # 🚀 注入 SEO 與 🎨 頂部無縫完美貼頂 CSS
@@ -157,17 +157,17 @@ st.components.v1.html("""
     <script>
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記咖啡店, 桌記, 桌子記,zhuoji, chortw, chort, 散文, 小說, 詩, 文藝書店, 文藝咖啡店, AI伙記, 茶壺, 小貓, 美國短毛貓, 靈魂金句, 高熵咖啡店, 文青創作";
+        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI伙記, 茶壺小貓, 靈魂金句, 高熵咖啡店, 文青創作";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
 
         var metaDesc = window.parent.document.createElement('meta');
         metaDesc.name = "description";
-        metaDesc.content = "歡迎光臨桌記咖啡店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
+        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
         
         var metaAuthor = window.parent.document.createElement('meta');
         metaAuthor.name = "author";
-        metaAuthor.content = "桌記咖啡店店長";
+        metaAuthor.content = "桌記書店店長";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
     </script>
 """, height=0, width=0)
@@ -238,7 +238,7 @@ st.markdown(f"""
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
-    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px */
+    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
     .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
@@ -289,7 +289,7 @@ if "chat_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 大腦設定直接綁定從資料庫讀出來的狀態
+# 🧠 核心修正：大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
 st.session_state.chahu_selected_brain = CURRENT_ACTIVE_BRAIN_FROM_DB
 
 active_title = st.session_state.current_book_title
@@ -400,7 +400,7 @@ with tab1:
                             st.session_state.sync_rerun_key += 1
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
-                            st.session_state.scroll_to_top_trigger = True   
+                            st.session_state.scroll_to_top_trigger = True  
                             st.rerun()
         else:
             st.subheader("無作品")
@@ -472,7 +472,7 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # ✨ 頭像使用外接 GIF 直鏈，徹底解放 Render HTTP 頻寬
+        # ✨ 頭像直接使用外部圖床直鏈，不再透過 Base64 重新編碼
         avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
 
         st.markdown(f"""
@@ -499,9 +499,8 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            # 📉 【對話歷史紀錄再度落實】：完美維持 6 輪對話防禦，節省頻寬
-            if len(st.session_state.messages) > 6:
-                st.session_state.messages = st.session_state.messages[-6:]
+            if len(st.session_state.messages) > 10:
+                st.session_state.messages = st.session_state.messages[-10:]
                 
             with st.chat_message("user"):
                 st.write(user_chat)
@@ -515,21 +514,26 @@ with tab1:
                 chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
+                    is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
+                    current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
                     
-                    # 📉 【對話脈絡瘦身】：當前書籍內文字數切到 400 字
-                    current_work_content_chunk = active_content[:400] + (" ... (餘下篇幅省略)" if len(active_content) > 400 else "")
-                    
-                    # 🐈 【茶壺對話長度限制已還原】：移除了上一版的「30字內」嚴格限制死命令
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
+
 
 【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
 作品內文如下：
 {current_work_content_chunk}
 
 【茶壺行為最高指令】：
-1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出回覆，順便幫忙銳利地抓出錯別字。
-2. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
+1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
+2. 切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！
+3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
+
+                    if is_slow_warmup:
+                        dynamic_system_prompt += "\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
+                    else:
+                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
@@ -602,6 +606,7 @@ with tab2:
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
         
+        # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
@@ -610,6 +615,7 @@ with tab2:
             horizontal=True
         )
         
+        # 核心改動：當店長切換開關時，直接同步寫入 SQLite 資料庫中
         if chosen_brain != st.session_state.chahu_selected_brain:
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
@@ -618,7 +624,7 @@ with tab2:
             conn.close()
             
             st.session_state.chahu_selected_brain = chosen_brain
-            st.cache_data.clear() 
+            st.cache_data.clear() # 刷清快取
             st.toast(f"🧠 大腦核心已成功「永久儲存」至資料庫：{chosen_brain}！")
             st.rerun()
             
@@ -649,7 +655,7 @@ with tab2:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.success(f"🎉 《{new_title}》已匯入！")
+                    st.success(f"🎉 《{new_title}']》已匯入！")
                     st.rerun()
 
         st.subheader("🛡️ 館藏備份與還原")
