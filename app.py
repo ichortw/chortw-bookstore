@@ -55,7 +55,7 @@ def init_db_once():
         try:
             c.execute("ALTER TABLE chahu_brain ADD COLUMN active_brain TEXT DEFAULT 'Google Gemini'")
         except sqlite3.OperationalError:
-            pass # 代表欄位早點存在了，跳過
+            pass # 代表欄位早就存在了，跳過
             
     conn.commit()
     conn.close()
@@ -235,7 +235,7 @@ st.markdown(f"""
     .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
     
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
-    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
+    .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
     /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
@@ -289,7 +289,7 @@ if "chat_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 核心修正：大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
+# 🧠 大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
 st.session_state.chahu_selected_brain = CURRENT_ACTIVE_BRAIN_FROM_DB
 
 active_title = st.session_state.current_book_title
@@ -355,7 +355,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
+            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一篇！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -373,7 +373,9 @@ with tab1:
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                st.markdown(f'<div class="poem-text">{protected_poem.replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
+                # 🛠️ 核心修復1：強化換行字元替換，並配合 CSS 'white-space: pre-wrap' 雙重保障詩歌排版
+                formatted_poem = protected_poem.replace('\n', '<br>').replace('\\n', '<br>')
+                st.markdown(f'<div class="poem-text">{formatted_poem}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
@@ -386,11 +388,11 @@ with tab1:
                         st.rerun()
                 else:
                     protected_full = inject_watermark(active_content)
-                    st.markdown(f'<div class="content-text">{protected_full.replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一篇！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -472,7 +474,6 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # ✨ 頭像直接使用外部圖床直鏈，不再透過 Base64 重新編碼
         avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
 
         st.markdown(f"""
@@ -514,12 +515,11 @@ with tab1:
                 chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
             else:
                 try:
-                    is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
-                    current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
+                    current_work_content_chunk = active_content
                     
+                    # 🐈 完美改回上一版：移除前 2 輪 30 字的死命令限制，開啟完整有趣的 ESFP 模式！
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
-
 
 【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
 作品內文如下：
@@ -529,11 +529,6 @@ with tab1:
 1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
 2. 切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！
 3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
-
-                    if is_slow_warmup:
-                        dynamic_system_prompt += "\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
-                    else:
-                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
 
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
@@ -600,8 +595,8 @@ with tab1:
 # 【分頁二：管理員後台（雪櫃）】
 # ==========================================
 with tab2:
-    st.header("⚙️ 傾聽柔柔飄雪")
-    admin_password = st.text_input("🔑 如夜色平靜", type="password")
+    st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
+    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
@@ -615,7 +610,6 @@ with tab2:
             horizontal=True
         )
         
-        # 核心改動：當店長切換開關時，直接同步寫入 SQLite 資料庫中
         if chosen_brain != st.session_state.chahu_selected_brain:
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
@@ -624,7 +618,7 @@ with tab2:
             conn.close()
             
             st.session_state.chahu_selected_brain = chosen_brain
-            st.cache_data.clear() # 刷清快取
+            st.cache_data.clear() 
             st.toast(f"🧠 大腦核心已成功「永久儲存」至資料庫：{chosen_brain}！")
             st.rerun()
             
@@ -655,9 +649,11 @@ with tab2:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.success(f"🎉 《{new_title}']》已匯入！")
+                    st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
+        # 🛠️ 核心修復2：將「館藏備份與還原」完全移到與 [上架新作品] 同等平級的獨立層級，修復點擊沒反應、不彈出功能的問題
+        st.markdown("---")
         st.subheader("🛡️ 館藏備份與還原")
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
         st.download_button(label="💾 下載全店館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
