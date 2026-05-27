@@ -355,7 +355,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一篇！", key="top_unbox_btn"):
+            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -390,7 +390,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一篇！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -600,8 +600,8 @@ with tab1:
 # 【分頁二：管理員後台（雪櫃）】
 # ==========================================
 with tab2:
-    st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
-    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
+    st.header("⚙️ 傾聽柔柔飄雪")
+    admin_password = st.text_input("🔑 如夜色平靜", type="password")
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
