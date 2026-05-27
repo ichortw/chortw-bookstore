@@ -702,4 +702,3 @@ with tab2:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
-}
