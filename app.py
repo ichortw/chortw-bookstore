@@ -36,7 +36,7 @@ def init_db_once():
                  (id INTEGER PRIMARY KEY, prompt TEXT, active_brain TEXT DEFAULT 'Google Gemini')''')
     
     default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專注、帶著300%的好奇看著來訪客人。
-你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵藏書閣的唯一書僮小貓。
+你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵咖啡店的唯一伙記小貓。
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
@@ -148,8 +148,8 @@ def load_assets_cached():
             img_base64 = base64.b64encode(image_file.read()).decode()
             mime_type = "image/jpeg"
             
-    if os.path.exists("banner.jpg"):
-        with open("banner.jpg", "rb") as banner_file:
+    if os.path.exists("banner1.jpg"):
+        with open("banner1.jpg", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
             
     return img_base64, mime_type, banner_base64
@@ -168,12 +168,12 @@ st.components.v1.html("""
     <script>
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI書僮, 茶壺小貓, 靈魂金句, 高熵藏書閣, 文青創作";
+        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI伙記, 茶壺小貓, 靈魂金句, 高熵咖啡店, 文青創作";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
 
         var metaDesc = window.parent.document.createElement('meta');
         metaDesc.name = "description";
-        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵藏書閣，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓書僮「茶壺」為您茶水伺候、隔空翻書。";
+        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
         
         var metaAuthor = window.parent.document.createElement('meta');
@@ -319,7 +319,7 @@ if slice_key not in st.session_state and len(active_content) > 200 and not activ
 elif slice_key not in st.session_state:
     st.session_state[slice_key] = 0
 
-st.session_state[f"verse_{active_title}"] = "桌記的書"
+st.session_state[f"verse_{active_title}"] = "桌記咖啡店的 chill time..."
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
@@ -330,7 +330,7 @@ if st.session_state.scroll_to_top_trigger:
     """, height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-tab1, tab2 = st.tabs(["🍵 茶座", "🪟 雪櫃"])
+tab1, tab2 = st.tabs(["🍵 茶座", "🪟 水吧"])
 
 # ==========================================
 # 【分頁一：雲端書館與美短貓陪讀】
@@ -366,7 +366,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📖 翻書", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
+            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -401,7 +401,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 再翻書", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -415,7 +415,7 @@ with tab1:
                             st.rerun()
         else:
             st.subheader("無作品")
-            st.info("藏書閣空空如也，正等待店長在後台打破秩序、注入星光。")
+            st.info("咖啡店空空如也，正等待店長在後台打破秩序、注入星光。")
             st.markdown("---")
             
         st.subheader("🧱 留緣牆")
@@ -434,14 +434,14 @@ with tab1:
                 else:
                     words = re.findall(r'[\u4e00-\u9fff]|[a-zA-Z]+', visitor_input)
                     if len(words) > 20:
-                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼書僮讀得頭暈，請精簡靈魂。")
+                        st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼伙記讀得頭暈，請精簡靈魂。")
                     else:
                         if not has_gemini:
                             st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GEMINI_API_KEY，請檢查環境變數）"
                         else:
                             try:
                                 model_eval = genai.GenerativeModel("gemini-2.5-flash")
-                                eval_prompt = f"""你是掌管高熵藏書閣的美短小貓書僮「茶壺」。
+                                eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。
 請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
 
 訪客留言："{visitor_input}"
@@ -449,7 +449,7 @@ with tab1:
 【請嚴格輸出以下 JSON 格式】：
 {{
   "passed": true或false,
-  "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到投緣牆了』；否則只回覆『thank you』。"
+  "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到留緣牆了』；否則只回覆『thank you』。"
 }}"""
                                 response = model_eval.generate_content(
                                     eval_prompt,
@@ -497,7 +497,7 @@ with tab1:
                     </div>
                     {avatar_html}
                 </div>
-                <div class="chahu-title">我是店長的書僮，我叫「茶壺」</div>
+                <div class="chahu-title">我是店長的伙記，我叫「茶壺」</div>
                 <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
             </div>
         """, unsafe_allow_html=True)
@@ -509,7 +509,7 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', msg["content"]))
                 
-        if user_chat := st.chat_input("啊，你來了！我閃"):
+        if user_chat := st.chat_input("Hi，請問咖啡或茶？"):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
