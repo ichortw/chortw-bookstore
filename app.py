@@ -131,7 +131,7 @@ has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
 # ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
+# 🐈 圖片與 Banner 記憶快取魔法 (外接 GIF 徹底釋放 Render HTTP 頻寬)
 # ==========================================
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 
@@ -238,7 +238,7 @@ st.markdown(f"""
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
-    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
+    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px */
     .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
@@ -289,7 +289,7 @@ if "chat_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 核心修正：大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
+# 🧠 大腦設定直接綁定從資料庫讀出來的狀態
 st.session_state.chahu_selected_brain = CURRENT_ACTIVE_BRAIN_FROM_DB
 
 active_title = st.session_state.current_book_title
@@ -355,7 +355,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一本！", key="top_unbox_btn"):
+            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一篇！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -390,7 +390,7 @@ with tab1:
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一本！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一篇！", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -400,7 +400,7 @@ with tab1:
                             st.session_state.sync_rerun_key += 1
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
-                            st.session_state.scroll_to_top_trigger = True  
+                            st.session_state.scroll_to_top_trigger = True   
                             st.rerun()
         else:
             st.subheader("無作品")
@@ -472,7 +472,7 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # ✨ 頭像直接使用外部圖床直鏈，不再透過 Base64 重新編碼
+        # ✨ 頭像使用外接 GIF 直鏈，徹底解放 Render 靜態頻寬
         avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
 
         st.markdown(f"""
@@ -499,8 +499,9 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            if len(st.session_state.messages) > 10:
-                st.session_state.messages = st.session_state.messages[-10:]
+            # 📉 【對話歷史紀錄再縮減】：從原本 10 輪下調到 6 輪，極佳平衡短期記憶與頻寬防禦
+            if len(st.session_state.messages) > 6:
+                st.session_state.messages = st.session_state.messages[-6:]
                 
             with st.chat_message("user"):
                 st.write(user_chat)
@@ -516,8 +517,11 @@ with tab1:
                 try:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
-                    current_work_content_chunk = active_content[:800] + (" ... (餘下篇幅省略)" if len(active_content) > 800 else "")
                     
+                    # 📉 【對話脈絡大幅瘦身】：當前書籍內文字數對半砍到 400 字
+                    current_work_content_chunk = active_content[:400] + (" ... (餘下篇幅省略)" if len(active_content) > 400 else "")
+                    
+                    # 📉 【茶壺字數強制壓制】：加入絕對指令限制 30 字以內，省去 WebSocket 廢話流
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
 
@@ -527,13 +531,13 @@ with tab1:
 
 【茶壺行為最高指令】：
 1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
-2. 切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！
+2. 【核心限字最高死命令】：切記！不論在什麼情況下，你的回覆長度都「絕對、嚴格限制在 30 個字以內」！多說任何一個字店長就會扣你三天罐罐！長話短說，一針見血！
 3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
 
                     if is_slow_warmup:
                         dynamic_system_prompt += "\n【前2輪慢熱期】：高傲冷淡，控制在30字內回答！"
                     else:
-                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，盡情展現你的ESFP活力！"
+                        dynamic_system_prompt += "\n【熱身完畢】：開啟話癆八卦吐槽模式，但牢記仍不可超過 30 字的絕對鐵律！"
 
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
@@ -565,7 +569,7 @@ with tab1:
                             "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
-                            "max_tokens": 400
+                            "max_tokens": 120 # 降低 token 生成上限
                         }
                         
                         groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
@@ -600,13 +604,12 @@ with tab1:
 # 【分頁二：管理員後台（雪櫃）】
 # ==========================================
 with tab2:
-    st.header("⚙️ 傾聽柔柔飄雪")
-    admin_password = st.text_input("🔑 如夜色平靜", type="password")
+    st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
+    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
     if admin_password == "Pint2012echo":
         st.success("🔓 店長身分驗證成功！")
         
-        # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
@@ -615,7 +618,6 @@ with tab2:
             horizontal=True
         )
         
-        # 核心改動：當店長切換開關時，直接同步寫入 SQLite 資料庫中
         if chosen_brain != st.session_state.chahu_selected_brain:
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
@@ -624,7 +626,7 @@ with tab2:
             conn.close()
             
             st.session_state.chahu_selected_brain = chosen_brain
-            st.cache_data.clear() # 刷清快取
+            st.cache_data.clear() 
             st.toast(f"🧠 大腦核心已成功「永久儲存」至資料庫：{chosen_brain}！")
             st.rerun()
             
@@ -655,7 +657,7 @@ with tab2:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.success(f"🎉 《{new_title}']》已匯入！")
+                    st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
         st.subheader("🛡️ 館藏備份與還原")
@@ -704,3 +706,4 @@ with tab2:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
+}
