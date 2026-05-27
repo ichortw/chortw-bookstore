@@ -131,30 +131,19 @@ has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
 # ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法 (已針對店長的 JPG 進行精準檔名校正)
+# 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
 # ==========================================
+CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
+
 @st.cache_data
 def load_assets_cached():
-    img_base64 = ""
-    mime_type = "image/jpeg"
     banner_base64 = ""
-    
-    if os.path.exists("chahu3.jpg"):
-        with open("chahu3.jpg", "rb") as image_file:
-            img_base64 = base64.b64encode(image_file.read()).decode()
-            mime_type = "image/jpeg"
-    elif os.path.exists("chahu3.jpg"):
-        with open("chahu3.jpg", "rb") as image_file:
-            img_base64 = base64.b64encode(image_file.read()).decode()
-            mime_type = "image/jpeg"
-            
     if os.path.exists("banner1.jpg"):
         with open("banner1.jpg", "rb") as banner_file:
             banner_base64 = base64.b64encode(banner_file.read()).decode()
-            
-    return img_base64, mime_type, banner_base64
+    return banner_base64
 
-img_base64, mime_type, banner_base64 = load_assets_cached()
+banner_base64 = load_assets_cached()
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
@@ -384,7 +373,7 @@ with tab1:
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                st.markdown(f'<div class="poem-text">{protected_poem.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="poem-text">{protected_poem.replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
@@ -397,7 +386,7 @@ with tab1:
                         st.rerun()
                 else:
                     protected_full = inject_watermark(active_content)
-                    st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>")}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="content-text">{protected_full.replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -483,11 +472,8 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        avatar_html = ""
-        if img_base64:
-            avatar_html = f'<img src="data:{mime_type};base64,{img_base64}" class="chahu-photo">'
-        else:
-            avatar_html = '<div class="chahu-photo" style="display:flex;align-items:center;justify-content:center;background:#f4ebe1;color:#7c6a56;font-size:13px;font-weight:bold;">請將小貓命名為 chahu3.jpg 放至同資料夾</div>'
+        # ✨ 頭像直接使用外部圖床直鏈，不再透過 Base64 重新編碼
+        avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
 
         st.markdown(f"""
             <div class="chahu-minimal-area">
@@ -509,7 +495,7 @@ with tab1:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', msg["content"]))
                 
-        if user_chat := st.chat_input("Hi，請問咖啡或茶？"):
+        if user_chat := st.chat_input("啊！你來了，我去冲茶先..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
@@ -669,7 +655,7 @@ with tab2:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.success(f"🎉 《{new_title}》已匯入！")
+                    st.success(f"🎉 《{new_title}']》已匯入！")
                     st.rerun()
 
         st.subheader("🛡️ 館藏備份與還原")
