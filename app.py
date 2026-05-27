@@ -55,7 +55,7 @@ def init_db_once():
         try:
             c.execute("ALTER TABLE chahu_brain ADD COLUMN active_brain TEXT DEFAULT 'Google Gemini'")
         except sqlite3.OperationalError:
-            pass # 代表欄位早點存在了，跳過
+            pass # 代表欄位早就存在了，跳過
             
     conn.commit()
     conn.close()
@@ -148,7 +148,7 @@ banner_base64 = load_assets_cached()
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
 # ==========================================
-st.set_page_config(page_title="桌記書店", layout="wide")
+st.set_page_config(page_title="桌記咖啡店", layout="wide")
 
 # ==========================================
 # 🚀 注入 SEO 與 🎨 頂部無縫完美貼頂 CSS
@@ -157,17 +157,17 @@ st.components.v1.html("""
     <script>
         var metaKeywords = window.parent.document.createElement('meta');
         metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI伙記, 茶壺小貓, 靈魂金句, 高熵咖啡店, 文青創作";
+        metaKeywords.content = "桌記書店, 桌記咖啡店, 桌記, 桌子記,zhuoji, chortw, chort, 散文, 小說, 詩, 文藝書店, 文藝咖啡店, AI伙記, 茶壺, 小貓, 美國短毛貓, 靈魂金句, 高熵咖啡店, 文青創作";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
 
         var metaDesc = window.parent.document.createElement('meta');
         metaDesc.name = "description";
-        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
+        metaDesc.content = "歡迎光臨桌記咖啡店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
         
         var metaAuthor = window.parent.document.createElement('meta');
         metaAuthor.name = "author";
-        metaAuthor.content = "桌記書店店長";
+        metaAuthor.content = "桌記咖啡店店長";
         window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
     </script>
 """, height=0, width=0)
@@ -472,7 +472,7 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # ✨ 頭像使用外接 GIF 直鏈，徹底解放 Render 靜態頻寬
+        # ✨ 頭像使用外接 GIF 直鏈，徹底解放 Render HTTP 頻寬
         avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
 
         st.markdown(f"""
@@ -499,7 +499,7 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             
-            # 📉 【對話歷史紀錄再縮減】：從原本 10 輪下調到 6 輪，極佳平衡短期記憶與頻寬防禦
+            # 📉 【對話歷史紀錄再度落實】：完美維持 6 輪對話防禦，節省頻寬
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
@@ -518,10 +518,10 @@ with tab1:
                     is_slow_warmup = st.session_state.chat_turns <= 2
                     current_work_title = st.session_state.current_book_title
                     
-                    # 📉 【對話脈絡大幅瘦身】：當前書籍內文字數對半砍到 400 字
+                    # 📉 【對話脈絡瘦身】：當前書籍內文字數切到 400 字
                     current_work_content_chunk = active_content[:400] + (" ... (餘下篇幅省略)" if len(active_content) > 400 else "")
                     
-                    # 📉 【茶壺字數強制壓制】：加入絕對指令限制 30 字以內，省去 WebSocket 廢話流
+                    # 📉 【茶壺字數強制壓制】：絕對指令限制 30 字以內，省去 WebSocket 廢話流
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
 
@@ -569,7 +569,7 @@ with tab1:
                             "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
-                            "max_tokens": 120 # 降低 token 生成上限
+                            "max_tokens": 120
                         }
                         
                         groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
@@ -706,4 +706,3 @@ with tab2:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
-}
