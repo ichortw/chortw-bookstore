@@ -611,11 +611,30 @@ with tab1:
                             "max_tokens": token_limit # 動態硬性封頂
                         }
                         
-                        groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
-                        if groq_res.status_code == 200:
-                            chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
-                        else:
-                            chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
+                        # 🔄 🧱 核心升級：Groq 429 抗壓重試鋼鐵護盾 🧱 🔄
+                        max_retries = 3
+                        base_delay = 0.5  # 基礎等待半秒
+                        
+                        for attempt in range(max_retries):
+                            groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
+                            
+                            if groq_res.status_code == 200:
+                                chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
+                                break  # 成功取得資料，跳出重試迴圈！
+                                
+                            elif groq_res.status_code == 429:
+                                # 撞到 429 速率限制，觸發自動遞增式排隊重試 (Exponential Backoff)
+                                if attempt < max_retries - 1:
+                                    # 第一次等 0.5s，第二次等 1.0s，依序排隊，不干擾前台店長操作
+                                    time.sleep(base_delay * (attempt + 1))
+                                    continue
+                                else:
+                                    # 3次都失敗了，溫柔安撫，不噴程式碼紅框
+                                    chahu_reply = "😮‍💨 喵嗚... 抱歉店長，Groq大腦一分鐘之內回覆超載了，讓我喘氣個5秒鐘，再跟我說一次好嗎？"
+                            else:
+                                # 其他 HTTP 錯誤碼直接輸出
+                                chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
+                                break
 
                     # 💡 提取翻書書名仍保留非貪婪模式，確保精準尋找完整配對
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
