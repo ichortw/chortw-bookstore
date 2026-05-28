@@ -483,8 +483,8 @@ with tab1:
         # 🐈 🎭 【動態視覺劇場】：依據聊天輪數，動態切換茶壺的狀態頭像與文字標籤
         if "chat_turns" in st.session_state and st.session_state.chat_turns >= 20:
             avatar_html = f'<img src="{CHAHU_SLEEP_GIF_URL}" class="chahu-photo">'
-            chahu_status_title = "「茶壺」已經睡著了... 😴"
-            chahu_status_subtitle = "尾巴正在無意識地慢搖，請勿拍打餵食"
+            chahu_status_title = "「茶壺」已經睡著... 😴"
+            chahu_status_subtitle = "尾巴正在無意識地拍打，雲空散，夢瀰漫，喊露打人間"
         else:
             avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
             chahu_status_title = "我是店長的伙記，我叫「茶壺」"
