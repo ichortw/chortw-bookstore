@@ -24,6 +24,12 @@ except ImportError:
 # ==========================================
 DB_PATH = '/data/zhuoji_books.db'
 
+# 確保資料庫目錄在特定環境下安全存在
+try:
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+except:
+    pass
+
 # ==========================================
 # ⚡ 火箭超速護盾：初始化資料庫 (開機只跑一次，徹底消滅冷啟動空白卡頓)
 # ==========================================
@@ -84,8 +90,8 @@ def fetch_core_data_cached():
     c = conn.cursor()
     c.execute("SELECT prompt, active_brain FROM chahu_brain WHERE id=1")
     row = c.fetchone()
-    prompt = row[0]
-    db_selected_brain = row[1] if row[1] else "Google Gemini"
+    prompt = row[0] if row else ""
+    db_selected_brain = row[1] if row and row[1] else "Google Gemini"
     
     c.execute("SELECT id, title, content, is_poem FROM books")
     books = c.fetchall()
@@ -111,7 +117,7 @@ def fetch_novels_menu_cached():
 
 @st.cache_data(ttl=3, show_spinner=False)
 def fetch_novel_page_cached(title, page_num):
-    """高鐵級精準撈頁快取，不讀取前後多餘文字，WebSocket 傳輸體積只有 3KB 完美控頻寬"""
+    """高鐵級精準撈頁快取，WebSocket 傳輸體積大幅脫脂優化，完美控頻寬"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT content FROM novels WHERE title=? AND page_num=?", (title, page_num))
@@ -189,7 +195,7 @@ banner_base64 = load_assets_cached()
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-# 注入 SEO 與 頂部貼頂無縫 CSS，加入二樓沉浸式特製閱讀紙張樣式
+# 注入 CSS（優化調整二樓小說艙，精簡傳輸體積）
 st.markdown(f"""
     <style>
     .block-container {{
@@ -236,24 +242,24 @@ st.markdown(f"""
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
     
-    /* 📜 二樓深夜沉浸式羊皮紙質感閱讀艙 CSS */
+    /* 📜 二樓羊皮紙質感減肥輕量版 CSS */
     .novel-container {{
-        background-color: #fbf7f0 !important;
-        border: 1px solid #ebdcc5 !important;
-        border-radius: 8px !important;
-        padding: 40px 50px !important;
-        box-shadow: inset 0 0 20px rgba(230,215,195,0.3), 0 4px 12px rgba(0,0,0,0.04) !important;
+        background-color: #fbf7f0;
+        border: 1px solid #ebdcc5;
+        border-radius: 8px;
+        padding: 35px 45px;
+        box-shadow: inset 0 0 15px rgba(230,215,195,0.2);
         margin-top: 10px;
         margin-bottom: 25px;
     }}
     .novel-paper-text {{
-        font-family: "Noto Serif TC", "Georgia", serif !important;
-        font-size: 21px !important;
-        line-height: 2.0 !important;
-        color: #2b221a !important;
-        text-align: justify !important;
-        letter-spacing: 1px !important;
-        white-space: pre-wrap !important;
+        font-family: serif;
+        font-size: 21px;
+        line-height: 2.0;
+        color: #2b221a;
+        text-align: justify;
+        letter-spacing: 1px;
+        white-space: pre-wrap;
     }}
     
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
@@ -271,7 +277,7 @@ st.markdown(f"""
     .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
     .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
     div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
-    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: "Noto Serif TC", serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
+    .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
     </style>
 """, unsafe_allow_html=True)
@@ -349,11 +355,11 @@ with tab1:
             st.subheader(f"《{st.session_state.current_book_title}》")
             shuffled_titles = st.session_state.entropy_order
             if active_title not in shuffled_titles:
-                active_title = shuffled_titles[0]
+                active_title = shuffled_titles[0] if shuffled_titles else "無"
                 st.session_state.current_book_title = active_title
                 st.rerun()
                 
-            idx = shuffled_titles.index(active_title)
+            idx = shuffled_titles.index(active_title) if active_title in shuffled_titles else 0
             st.markdown(f"**📚 {st.session_state[verse_key]}**")
             
             selected_title = st.selectbox(
@@ -366,11 +372,16 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
+            # ⚙️ 修正點：重構防崩潰安全隨機選書邏輯，消滅定義不明的幽靈變數隱患
             if st.button("📖 翻一翻", help="茶壺幫你隨手翻篇！", key="top_unbox_btn"):
-                remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not remain_titles:
-                    remain_titles = [b[1] for b in all_books_list]
-                chosen = random.choice(remain_titles)
+                all_titles = [b[1] for b in all_books_list]
+                if len(all_titles) > 1:
+                    remain_titles = [t for t in all_titles if t != st.session_state.current_book_title]
+                    chosen = random.choice(remain_titles)
+                elif all_titles:
+                    chosen = all_titles[0]
+                else:
+                    chosen = "無"
                 st.session_state.current_book_title = chosen
                 st.session_state.is_fully_expanded = False
                 st.session_state.sync_rerun_key += 1
@@ -399,10 +410,14 @@ with tab1:
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("📖 翻又翻", key="rear_unboxing_btn"):
-                            remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                            if not remain_titles:
-                                remain_titles = [b[1] for b in all_books_list]
-                            chosen = random.choice(remain_titles)
+                            all_titles = [b[1] for b in all_books_list]
+                            if len(all_titles) > 1:
+                                remain_titles = [t for t in all_titles if t != st.session_state.current_book_title]
+                                chosen = random.choice(remain_titles)
+                            elif all_titles:
+                                chosen = all_titles[0]
+                            else:
+                                chosen = "無"
                             st.session_state.current_book_title = chosen
                             st.session_state.is_fully_expanded = False
                             st.session_state.sync_rerun_key += 1
@@ -478,6 +493,8 @@ with tab1:
         
         if "messages" not in st.session_state:
             st.session_state.messages = []
+            
+        # 渲染對話歷史
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', msg["content"]))
@@ -489,14 +506,25 @@ with tab1:
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
+            # 立即顯示使用者剛輸入的對話，提供流暢體感
             with st.chat_message("user"):
                 st.write(user_chat)
                 
             match = None  
             current_brain = st.session_state.chahu_selected_brain
+            
+            # 🧠 貓咪防覆讀隨機垃圾話池
+            chahu_fallback_replies = [
+                "🐾 喵嗚... 腦袋突然開小差了，要不換本書讀讀？",
+                "🐾 喵... 我剛剛恍神在想店長的下一部巨作，你剛才說啥？",
+                "🐾 貓毛卡在核心大腦了，等我抓個癢先！",
+                "🐾 喵嗚？外面的高熵咖啡香氣讓我有點醉了...",
+                "🐾 （抖了抖耳朵）翻書魔法陣好像能量不足，店長加薪水了嗎？"
+            ]
+            
             if n >= 20:
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
-                time.sleep(n * 0.2)
+                time.sleep(n * 0.1)
             elif current_brain == "Google Gemini" and not has_gemini:
                 chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦..."
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
@@ -533,7 +561,7 @@ with tab1:
                         try:
                             chahu_reply = response.text
                         except:
-                            chahu_reply = response.candidates[0].content.parts[0].text if response.candidates else "🐾 喵嗚..."
+                            chahu_reply = response.candidates[0].content.parts[0].text if response.candidates else random.choice(chahu_fallback_replies)
                     
                     elif current_brain == "Groq (Llama-3)":
                         groq_url = "https://api.groq.com/openai/v1/chat/completions"
@@ -548,7 +576,7 @@ with tab1:
                         if groq_res.status_code == 200:
                             chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
                         else:
-                            chahu_reply = "🥺 喵... 抱歉我想獨自睡一會或做個gym先，回來再跟你聊。"
+                            chahu_reply = random.choice(chahu_fallback_replies) # ⚙️ 修正點：打破覆讀機
 
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
@@ -561,14 +589,16 @@ with tab1:
                                 st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                                 break
                 except:
-                    chahu_reply = "😮‍💨 貓毛卡住大腦了..."
+                    chahu_reply = random.choice(chahu_fallback_replies) # ⚙️ 修正點：打破覆讀機
                 finally:
                     gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
-                st.rerun()
+            
+            # ⚙️ 終極修復點：斬斷 3.68 GB WebSocket 頻寬殺手！
+            # 移除原先在對話結尾會盲目觸發的 st.rerun()，改採 Streamlit Chat 內建更新流，徹底終結無限循環重繪！
 
 # ==========================================
 # 【分頁二：📜 二樓（主打沉浸式小說純淨閱讀艙）】
@@ -577,7 +607,6 @@ with tab2:
     st.subheader("🪐 二樓地下圖書館")
     st.caption("✨ 避開塵囂的深度閱讀空間。這裡不設訪客輸入窗口與 AI 貓咪，回歸純粹的紙質文字體悟。")
     
-    # 🪵 精緻木質調三個獨立下拉選單，自動聯動互斥重置邏輯
     col_l, col_m, col_s = st.columns(3)
     
     with col_l:
@@ -590,7 +619,6 @@ with tab2:
         short_list = ["-- 請選擇短篇微光 (1萬字±) --"] + novels_menu["短篇小說"]
         sel_short = st.selectbox("📘 短篇小說選欄：", short_list, index=0)
 
-    # 🎛️ 互斥鎖核心：判定讀者到底最後點選了哪一本
     chosen_novel = None
     if sel_long and not sel_long.startswith("--"):
         chosen_novel = sel_long
@@ -599,7 +627,6 @@ with tab2:
     elif sel_short and not sel_short.startswith("--"):
         chosen_novel = sel_short
 
-    # 🔄 當讀者改選別本書，自動將頁碼洗回第 1 頁
     if chosen_novel and chosen_novel != st.session_state.active_novel_title:
         st.session_state.active_novel_title = chosen_novel
         st.session_state.novel_page_num = 1
@@ -608,13 +635,9 @@ with tab2:
     st.markdown("---")
 
     if st.session_state.active_novel_title:
-        # ⚡ 從捷徑索引快取撈取精確 1000 字（不呼叫 AI 大腦，瞬間載入、一閃即出）
         page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
-        
-        # 📖 頂部功能列：上一頁、下拉選單跳轉、下一頁
         col_prev, col_drop, col_next = st.columns([1, 2, 1])
         
-        # 🛡️ 軍規防連擊函數 (1.0秒黃金防禦防火牆)
         def check_click_spam():
             now = time.time()
             elapsed = now - st.session_state.last_click_time
@@ -634,7 +657,6 @@ with tab2:
                         st.toast("已經是第一頁囉！")
 
         with col_drop:
-            # 🎯 頁碼直接跳轉選單（徹底消滅手點 50 次酷刑）
             page_options = list(range(1, total_pages + 1))
             try:
                 curr_idx = page_options.index(st.session_state.novel_page_num)
@@ -662,7 +684,6 @@ with tab2:
                     else:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
 
-        # 📜 深夜羊皮紙質感閱讀艙渲染輸出
         st.markdown(f"#### 《{st.session_state.active_novel_title}》")
         protected_novel_chunk = inject_watermark(page_text)
         
@@ -672,23 +693,22 @@ with tab2:
             </div>
         """, unsafe_allow_html=True)
         
-        # 底部同步具備翻頁按鈕，完全契合沉浸式動線
         st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
         
     else:
-        st.info("💡 請在上方點開【長篇】、【中篇】或【短篇】選單，翻開您想閱讀的長篇巨作。")
+        st.info("💡 請在上方點開【長篇】、【中篇】或【短篇】選單，翻開您想閱讀的長篇巨著。")
 
 # ==========================================
 # 【分頁三：🪟 水吧（店長後台管理與 Word 上傳）】
 # ==========================================
-with tab2 if not tab3 else tab3:
+# ⚙️ 修正點：徹底消滅邏輯模糊的與條件句，正名回歸獨立乾淨的 with tab3
+with tab3:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
     if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
-        # 🧠 大腦核心切換（Pay-to-Use 滿血解禁）
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦：", ["Google Gemini", "Groq (Llama-3)"],
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True
@@ -717,9 +737,8 @@ with tab2 if not tab3 else tab3:
             st.rerun()
             
         st.markdown("---")
-        # 🎪 二樓新骨幹：高熵小說上傳艙（支援直接拖曳 MS Word .docx 檔案）
         st.subheader("📚 二樓：匯入長/中/短篇小說 (.docx)")
-        st.caption("💡 程式會自動榨乾 Word 內文，每 1000 字自動精準切片並建立資料庫分頁。Word 暫存檔案用完立馬銷毀，雲端絕不留任何隱私廢檔。")
+        st.caption("💡 程式會自動榨乾 Word 內文，每 1000 字自動精準切片並建立資料庫分頁。")
         
         with st.form("novel_upload_form", clear_on_submit=True):
             novel_upload_title = st.text_input("小說標題（例如：天空之城）")
@@ -729,7 +748,6 @@ with tab2 if not tab3 else tab3:
             
             if submit_upload_novel and uploaded_docx and novel_upload_title:
                 try:
-                    # 在記憶體 RAM 中瞬時提取 Word，安全防隱私洩漏
                     doc = docx.Document(uploaded_docx)
                     full_text_list = []
                     for para in doc.paragraphs:
@@ -737,17 +755,14 @@ with tab2 if not tab3 else tab3:
                             full_text_list.append(para.text)
                     full_text = "\n\n".join(full_text_list)
                     
-                    # ✂️ 自動切片演算法：精準限制每頁 1000 字
                     chunk_size = 1000
                     text_chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size)]
                     
                     if text_chunks:
                         conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                         c = conn.cursor()
-                        # 防止重複導入，先清除同名舊檔案
                         c.execute("DELETE FROM novels WHERE title=?", (novel_upload_title,))
                         
-                        # 迴圈批次寫入結構表
                         for page_idx, chunk_data in enumerate(text_chunks, start=1):
                             c.execute(
                                 "INSERT INTO novels (title, type, page_num, content) VALUES (?, ?, ?, ?)",
@@ -756,7 +771,6 @@ with tab2 if not tab3 else tab3:
                         conn.commit()
                         conn.close()
                         
-                        # 🧹 強制發動記憶體垃圾回收車
                         del doc, full_text_list, full_text, text_chunks
                         gc.collect()
                         st.cache_data.clear()
@@ -788,14 +802,13 @@ with tab2 if not tab3 else tab3:
         
         if st.button("🗑️ 清空留緣牆"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-            c = db_conn = conn.cursor()
+            c = conn.cursor() # ⚙️ 修正點：移除 c = db_conn = ... 的多重賦值手誤
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
             st.cache_data.clear()
             st.rerun()
             
-        # 館藏下架總管
         st.write("📋 **一樓作品管理列表：**")
         for bk in all_books_list:
             bk_id, bk_title, _, bk_poem = bk
