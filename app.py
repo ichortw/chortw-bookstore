@@ -12,6 +12,13 @@ from datetime import datetime
 import google.generativeai as genai
 import base64
 
+# 🔌 自動安裝或導入 python-docx（店長不需手動去後台裝套件，程式自動處理）
+try:
+    import docx
+except ImportError:
+    os.system('pip install python-docx')
+    import docx
+
 # ==========================================
 # 🏠 雲端保險箱配置：全面指定 Render 永久硬碟路徑
 # ==========================================
@@ -24,15 +31,21 @@ DB_PATH = '/data/zhuoji_books.db'
 def init_db_once():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
+    # 一樓：詩與散文表
     c.execute('''CREATE TABLE IF NOT EXISTS books 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
+    # 二樓：小說專屬結構表（加入頁碼與字數統計，並建立高鐵級捷徑索引確保不反白）
+    c.execute('''CREATE TABLE IF NOT EXISTS novels 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, page_num INTEGER, content TEXT)''')
+    c.execute('''CREATE INDEX IF NOT EXISTS idx_novels_lookup ON novels (title, page_num)''')
+    
     c.execute('''CREATE TABLE IF NOT EXISTS stamps 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, created_at TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS memo 
                  (id INTEGER PRIMARY KEY, content TEXT)''')
     c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
     
-    # 🧠 大腦資料表升級：確保具備儲存「當前使用大腦」的欄位
+    # 🧠 大腦資料表
     c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
                  (id INTEGER PRIMARY KEY, prompt TEXT, active_brain TEXT DEFAULT 'Google Gemini')''')
     
@@ -47,28 +60,25 @@ def init_db_once():
 [[OPEN_BOOK:作品名稱]]
 例如：最後一行加上 [[OPEN_BOOK:宇宙的孤寂]] 即可，系統會自動幫他隔空翻書。"""
     
-    # 檢查是否需要初始資料
     c.execute("SELECT id FROM chahu_brain WHERE id=1")
     if not c.fetchone():
         c.execute("INSERT INTO chahu_brain (id, prompt, active_brain) VALUES (1, ?, 'Google Gemini')", (default_prompt,))
     else:
-        # 🛡️ 舊相容防禦：如果以前開過舊表但沒 active_brain 欄位，自動幫店長升級補上
         try:
             c.execute("ALTER TABLE chahu_brain ADD COLUMN active_brain TEXT DEFAULT 'Google Gemini'")
         except sqlite3.OperationalError:
-            pass # 代表欄位早就存在了，跳過
+            pass 
             
     conn.commit()
     conn.close()
     return True
 
-# 在全域默默且迅速地執行超速護盾，不再擋讀者的開頁畫面
 _ = init_db_once()
 
 # ==========================================
-# ⚡ 記憶體護衛：資料庫讀取快取 (大幅減輕硬碟 I/O 負擔)
+# ⚡ 記憶體護衛：一樓與二樓資料讀取快取 (大幅減輕硬碟 I/O 負擔)
 # ==========================================
-@st.cache_data(ttl=5, show_spinner=False) # 調整快取為 5 秒，確保後台變更即時反應
+@st.cache_data(ttl=3, show_spinner=False)
 def fetch_core_data_cached():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
@@ -84,16 +94,45 @@ def fetch_core_data_cached():
     conn.close()
     return prompt, db_selected_brain, books, stamps
 
+@st.cache_data(ttl=3, show_spinner=False)
+def fetch_novels_menu_cached():
+    """極速撈取二樓小說分類選單，一閃即出"""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT DISTINCT title, type FROM novels ORDER BY id ASC")
+    rows = c.fetchall()
+    conn.close()
+    
+    menu = {"長篇小說": [], "中篇小說": [], "短篇小說": []}
+    for title, n_type in rows:
+        if n_type in menu:
+            menu[n_type].append(title)
+    return menu
+
+@st.cache_data(ttl=3, show_spinner=False)
+def fetch_novel_page_cached(title, page_num):
+    """高鐵級精準撈頁快取，不讀取前後多餘文字，WebSocket 傳輸體積只有 3KB 完美控頻寬"""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    c = conn.cursor()
+    c.execute("SELECT content FROM novels WHERE title=? AND page_num=?", (title, page_num))
+    row = c.fetchone()
+    
+    c.execute("SELECT MAX(page_num) FROM novels WHERE title=?", (title,))
+    max_p = c.fetchone()[0] or 1
+    conn.close()
+    
+    page_content = row[0] if row else "未找到該頁內容。"
+    return page_content, max_p
+
 # ==========================================
 # 🛡️ IP 版權護衛演算法：零寬度隱形浮水印 (Zero-Width Watermark)
 # ==========================================
 def inject_watermark(text):
     if not text:
         return text
-    ZW_A = "\u200B" # Zero-Width Space
-    ZW_B = "\u200C" # Zero-Width Non-Joiner
+    ZW_A = "\u200B" 
+    ZW_B = "\u200C" 
     fingerprint = ZW_A + ZW_B + ZW_A + ZW_A + ZW_B
-    
     result = []
     for char in text:
         result.append(char)
@@ -131,9 +170,7 @@ def get_groq_api_key():
 has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
-# ==========================================
-# 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
-# ==========================================
+# 外接免費圖床網址，徹底守護 Render 頻寬
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
 
@@ -152,28 +189,7 @@ banner_base64 = load_assets_cached()
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-# ==========================================
-# 🚀 注入 SEO 與 🎨 頂部無縫完美貼頂 CSS
-# ==========================================
-st.components.v1.html("""
-    <script>
-        var metaKeywords = window.parent.document.createElement('meta');
-        metaKeywords.name = "keywords";
-        metaKeywords.content = "桌記書店, 桌記, zhuoji, chortw, chort, 散文集, 小說, 詩集, 文藝書店, AI伙記, 茶壺小貓, 靈魂金句, 高熵咖啡店, 文青創作";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaKeywords);
-
-        var metaDesc = window.parent.document.createElement('meta');
-        metaDesc.name = "description";
-        metaDesc.content = "歡迎光臨桌記書店。這裡是一座混亂字海裡的高熵咖啡店，收錄了店長精選的個人文學創作與詩集，並由 ESFP 傲嬌美短小貓伙記「茶壺」為您茶水伺候、隔空翻書。";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaDesc);
-        
-        var metaAuthor = window.parent.document.createElement('meta');
-        metaAuthor.name = "author";
-        metaAuthor.content = "桌記書店店長";
-        window.parent.document.getElementsByTagName('head')[0].appendChild(metaAuthor);
-    </script>
-""", height=0, width=0)
-
+# 注入 SEO 與 頂部貼頂無縫 CSS，加入二樓沉浸式特製閱讀紙張樣式
 st.markdown(f"""
     <style>
     .block-container {{
@@ -183,14 +199,12 @@ st.markdown(f"""
         padding-right: 1rem !important;
         max-width: 100% !important;
     }}
-
     header[data-testid="stHeader"] {{
         visibility: hidden !important;
         height: 0px !important;
         background-color: transparent !important;
         pointer-events: none !important; 
     }}
-
     .zhuoji-banner {{
         background-image: url('data:image/jpeg;base64,{banner_base64}');
         background-size: cover;
@@ -207,41 +221,43 @@ st.markdown(f"""
         justify-content: center;
         background-color: #e8ded1;
     }}
-    
-    .content-text, .poem-text, .touyuan-river, div[data-testid="stMarkdownContainer"] p strong {{
+    .content-text, .poem-text, .novel-paper-text, .touyuan-river {{
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         user-select: none !important;
     }}
-    
-    .chahu-bot-trap {{
-        display: none !important;
+    .chahu-bot-trap {{ display: none !important; }}
+    div[data-testid="stStatusWidget"], .stDeployButton, button[data-testid="baseButton-header"], button[aria-label="Context menu"], button[title="Developer options"] {{
+        display: none !important; visibility: hidden !important;
     }}
-    
-    div[data-testid="stStatusWidget"],
-    .stDeployButton,
-    button[data-testid="baseButton-header"],
-    button[aria-label="Context menu"],
-    button[title="Developer options"],
-    div[class*="stActionButton"],
-    header button {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }}
-    #MainMenu {{visibility: hidden; display: none !important;}} 
-    footer {{visibility: hidden; display: none !important;}}
-    .viewerBadge_container__1QSob {{display: none !important;}}
-    .chahu-minimal-area {{ background: transparent; border: none; padding: 10px; text-align: center; position: relative; margin-bottom: 15px; }}
+    #MainMenu, footer {{visibility: hidden; display: none !important;}}
     
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
+    
+    /* 📜 二樓深夜沉浸式羊皮紙質感閱讀艙 CSS */
+    .novel-container {{
+        background-color: #fbf7f0 !important;
+        border: 1px solid #ebdcc5 !important;
+        border-radius: 8px !important;
+        padding: 40px 50px !important;
+        box-shadow: inset 0 0 20px rgba(230,215,195,0.3), 0 4px 12px rgba(0,0,0,0.04) !important;
+        margin-top: 10px;
+        margin-bottom: 25px;
+    }}
+    .novel-paper-text {{
+        font-family: "Noto Serif TC", "Georgia", serif !important;
+        font-size: 21px !important;
+        line-height: 2.0 !important;
+        color: #2b221a !important;
+        text-align: justify !important;
+        letter-spacing: 1px !important;
+        white-space: pre-wrap !important;
+    }}
+    
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    
-    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
-    
+    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -263,38 +279,38 @@ st.markdown(f"""
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
-# ==========================================
-# 3. 撈出全局核心資料 (使用內存快取，杜絕磁碟 I/O 塞車)
-# ==========================================
+# 撈出一樓核心快取資料
 CHAHU_PROMPT_FROM_DB, CURRENT_ACTIVE_BRAIN_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
+# 撈出二樓小說快取選單
+novels_menu = fetch_novels_menu_cached()
 
 if "sync_rerun_key" not in st.session_state:
     st.session_state.sync_rerun_key = 0
-
 if "entropy_order" not in st.session_state or len(st.session_state.entropy_order) != len(all_books_list):
     st.session_state.entropy_order = [b[1] for b in all_books_list]
     random.shuffle(st.session_state.entropy_order)
-
 if "current_book_title" not in st.session_state:
     if st.session_state.entropy_order:
         st.session_state.current_book_title = st.session_state.entropy_order[0]
     else:
         st.session_state.current_book_title = "無"
-
 if "is_fully_expanded" not in st.session_state:
     st.session_state.is_fully_expanded = False
-
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = 0
-
-# 🎨 🎭 秘密彩蛋初始化：在 4 到 9 輪之間，隨機選取兩輪作為爆發輪（多於200字少於400字）
 if "burst_turns" not in st.session_state:
     st.session_state.burst_turns = random.sample(range(4, 10), 2)
-
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 大腦設定直接綁定從資料庫讀出來的狀態，從根本解決重整失憶問題
+# 🧠 二樓沉浸式專用狀態初始化
+if "active_novel_title" not in st.session_state:
+    st.session_state.active_novel_title = None
+if "novel_page_num" not in st.session_state:
+    st.session_state.novel_page_num = 1
+if "last_click_time" not in st.session_state:
+    st.session_state.last_click_time = 0.0
+
 st.session_state.chahu_selected_brain = CURRENT_ACTIVE_BRAIN_FROM_DB
 
 active_title = st.session_state.current_book_title
@@ -317,25 +333,20 @@ st.session_state[f"verse_{active_title}"] = "桌記咖啡店的 chill time..."
 verse_key = f"verse_{active_title}"
 
 if st.session_state.scroll_to_top_trigger:
-    st.components.v1.html("""
-        <script>
-            window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});
-        </script>
-    """, height=0, width=0)
+    st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-tab1, tab2 = st.tabs(["🍵 茶座", "🪟 水吧"])
+# 📦 【三大分頁架構正式合流：一樓茶座、二樓圖書館、管理員水吧】
+tab1, tab2, tab3 = st.tabs(["🍵 茶座", "📜 二樓", "🪟 水吧"])
 
 # ==========================================
-# 【分頁一：雲端書館與美短貓陪讀】
+# 【分頁一：🍵 茶座（詩、散文與小貓聊天）】
 # ==========================================
 with tab1:
     col_book, col_chahu = st.columns([1.6, 1.0])
-    
     with col_book:
         if all_books_list:
             st.subheader(f"《{st.session_state.current_book_title}》")
-            
             shuffled_titles = st.session_state.entropy_order
             if active_title not in shuffled_titles:
                 active_title = shuffled_titles[0]
@@ -346,13 +357,8 @@ with tab1:
             st.markdown(f"**📚 {st.session_state[verse_key]}**")
             
             selected_title = st.selectbox(
-                "隱藏標籤選單：", 
-                shuffled_titles, 
-                index=idx,
-                label_visibility="collapsed",
-                key=f"book_selector_dropdown_sync_{st.session_state.sync_rerun_key}"
+                "隱藏標籤選單：", shuffled_titles, index=idx, label_visibility="collapsed", key=f"bk_sync_{st.session_state.sync_rerun_key}"
             )
-            
             if selected_title != st.session_state.current_book_title:
                 st.session_state.current_book_title = selected_title
                 st.session_state.is_fully_expanded = False
@@ -362,7 +368,7 @@ with tab1:
 
             if st.button("📖 翻一翻", help="茶壺幫你隨手翻篇！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not remain_titles: # 🌟 已修復這裡的變數拼寫錯誤
+                if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
                 chosen = random.choice(remain_titles)
                 st.session_state.current_book_title = chosen
@@ -374,29 +380,25 @@ with tab1:
                 st.rerun()
 
             st.markdown("---")
-            
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                formatted_poem = protected_poem.replace('\n', '<br>').replace('\\n', '<br>')
-                st.markdown(f'<div class="poem-text">{formatted_poem}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="poem-text">{protected_poem.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
                     preview_text = active_content[platform_start:platform_start+preview_length]
                     protected_preview = inject_watermark(preview_text)
                     st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
-                    
-                    if st.button("...想繼續讀", help="按下去吧繼續沉淪", key="sink_btn"):
+                    if st.button("...想繼續讀", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
                     protected_full = inject_watermark(active_content)
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
-                    
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", help="讀完了嗎？來，茶壺給你再翻一篇！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", key="rear_unboxing_btn"):
                             remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                             if not remain_titles:
                                 remain_titles = [b[1] for b in all_books_list]
@@ -416,12 +418,10 @@ with tab1:
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
             visitor_input = st.text_input("有緣留下一句 20 字 🐈", max_chars=100)
-            
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
-            
-            submitted = st.form_submit_button("✨ 留緣", help="還想，寫吧！")
+            submitted = st.form_submit_button("✨ 留緣")
             
             if submitted and visitor_input:
                 if bot_trap_input:
@@ -432,27 +432,14 @@ with tab1:
                         st.warning("⚠️ 怨念太重了！字數超過 20 字，茶壼伙記讀得頭暈，請精簡靈魂。")
                     else:
                         if not has_gemini:
-                            st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GEMINI_API_KEY，請檢查環境變數）"
+                            st.session_state.touyuan_feedback = "🐾 （提示：後台未偵測到 GEMINI_API_KEY）"
                         else:
                             try:
                                 model_eval = genai.GenerativeModel("gemini-2.5-flash")
-                                eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。
-請審查以下這句訪客留言。審查標準請務必「非常寬鬆與溫柔」。只要這句話不是垃圾廣告、不是髒話亂碼，且帶有一絲情緒或浪漫意境，就請判為通過(true)！
-
-訪客留言："{visitor_input}"
-
-【請嚴格輸出以下 JSON 格式】：
-{{
-  "passed": true或false,
-  "reply": "如果你判定合格(true)，請回覆一句話，開頭必須包含『就是你啊，我把你的留言貼到留緣牆了』；否則只回覆『thank you』。"
-}}"""
-                                response = model_eval.generate_content(
-                                    eval_prompt,
-                                    generation_config={"response_mime_type": "application/json"}
-                                )
+                                eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。請審查以下這句訪客留言。非常寬鬆，只要不是垃圾廣告、不是髒話亂碼就判為通過(true)。\n訪客留言："{visitor_input}"\n【輸出 JSON 格式】：\n{{"passed": true或false, "reply": "判定合格回覆『就是你啊，我把你的留言貼到留緣牆了』；否則回覆『thank you』。"}}"""
+                                response = model_eval.generate_content(eval_prompt, generation_config={"response_mime_type": "application/json"})
                                 res_json = json.loads(response.text)
                                 st.session_state.touyuan_feedback = res_json["reply"]
-                                    
                                 if res_json["passed"]:
                                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                                     c = conn.cursor()
@@ -487,22 +474,10 @@ with tab1:
             chahu_status_title = "我是店長的伙記，我叫「茶壺」"
             chahu_status_subtitle = "一隻過度活躍的ESFP小貓"
 
-        st.markdown(f"""
-            <div class="chahu-minimal-area">
-                <div class="avatar-area">
-                    <div class="smoke-container">
-                        <div class="smoke-line smoke-1"></div><div class="smoke-line smoke-2"></div>
-                    </div>
-                    {avatar_html}
-                </div>
-                <div class="chahu-title">{chahu_status_title}</div>
-                <div class="chahu-subtitle">{chahu_status_subtitle}</div>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="chahu-minimal-area"><div class="avatar-area"><div class="smoke-container"><div class="smoke-line smoke-1"></div><div class="smoke-line smoke-2"></div></div>{avatar_html}</div><div class="chahu-title">{chahu_status_title}</div><div class="chahu-subtitle">{chahu_status_subtitle}</div></div>', unsafe_allow_html=True)
         
         if "messages" not in st.session_state:
             st.session_state.messages = []
-            
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', msg["content"]))
@@ -511,7 +486,6 @@ with tab1:
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
             n = st.session_state.chat_turns
-            
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
@@ -520,113 +494,61 @@ with tab1:
                 
             match = None  
             current_brain = st.session_state.chahu_selected_brain
-            
             if n >= 20:
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
-                wait_time = n * 0.2
-                time.sleep(wait_time)
-                
+                time.sleep(n * 0.2)
             elif current_brain == "Google Gemini" and not has_gemini:
-                chahu_reply = "😮‍章 喵嗚... 我現在連不上大腦... 請確認環境變數裡有沒有填對 `GEMINI_API_KEY` 喔！"
+                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦..."
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
-                chahu_reply = "😮‍💨 喵嗚... 我聞不會 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
+                chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道..."
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
                     current_work_content_chunk = active_content[:400]
                     
-                    # 💡 雙大腦安全氣囊升級：將天花板全面拉高到指令的 3 倍以上，解決中文與 Emoji 暴吃 Token 被截斷的問題
                     if 1 <= n <= 3:
-                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數務必極其短小精悍，絕對不能超過 20 個字』！"
+                        mood_instruction = "【當前心情】：你對客人冷淡觀察。請稍微敷衍，且回覆『絕對不能超過 20 個字』！"
                         token_limit = 300  
                     elif 4 <= n <= 9:
                         if n in st.session_state.burst_turns:
-                            mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮你 ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
+                            mood_instruction = "【當前心情】：你跟客人極度投緣，話匣子大失控！『回覆總字數必須大於 200 字，且在 400 字以內』！"
                             token_limit = 1200 
                         else:
-                            mood_instruction = " ==========================================\n【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮死黨 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
+                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
                             token_limit = 600  
-                    else:  # 10 <= n <= 19
-                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數務必極其短小，絕對不能超過 15 個字』！"
+                    else:
+                        mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺。請瘋狂敷衍，『絕對不能超過 15 個字』！"
                         token_limit = 300  
 
-                    dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
-
-【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
-作品內文如下（已精簡傳輸）：
-{current_work_content_chunk}
-
-{mood_instruction}
-
-【茶壺行為最高指令】：
-1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用符合你此時【當前心情】的可愛語氣做出回覆，順便幫忙銳利地抓出錯別字。
-2. 切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！
-3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見微！"""
+                    dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\n\n【當前茶室環境】：讀者正閱讀作品：《{current_work_title}》。\n內文：\n{current_work_content_chunk}\n\n{mood_instruction}\n\n【店長的絕對鐵律】：嚴禁出現『唉』字！"
 
                     if current_brain == "Google Gemini":
-                        model_chat = genai.GenerativeModel(
-                            model_name="gemini-2.5-flash",
-                            system_instruction=dynamic_system_prompt,
-                            generation_config={"max_output_tokens": token_limit}
-                        )
+                        model_chat = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=dynamic_system_prompt, generation_config={"max_output_tokens": token_limit})
                         gemini_history = []
                         for msg in st.session_state.messages[:-1]:
                             role = "user" if msg["role"] == "user" else "model"
                             gemini_history.append({"role": role, "parts": [msg["content"]]})
-                        
                         chat_session = model_chat.start_chat(history=gemini_history)
                         response = chat_session.send_message(user_chat)
-                        
-                        # 🛡️ 鋼鐵防護網：檢查 Gemini 回傳狀態
                         try:
                             chahu_reply = response.text
-                        except Exception:
-                            if response.candidates and response.candidates[0].content.parts:
-                                chahu_reply = response.candidates[0].content.parts[0].text
-                            else:
-                                chahu_reply = "🐾 喵嗚... 剛才大腦在想別的事情，你可以再跟我說一次嗎？"
+                        except:
+                            chahu_reply = response.candidates[0].content.parts[0].text if response.candidates else "🐾 喵嗚..."
                     
                     elif current_brain == "Groq (Llama-3)":
                         groq_url = "https://api.groq.com/openai/v1/chat/completions"
-                        groq_headers = {
-                            "Authorization": f"Bearer {groq_api_key}",
-                            "Content-Type": "application/json"
-                        }
-                        
+                        groq_headers = {"Authorization": f"Bearer {groq_api_key}", "Content-Type": "application/json"}
                         groq_messages = [{"role": "system", "content": dynamic_system_prompt}]
                         for msg in st.session_state.messages[:-1]:
                             groq_messages.append({"role": msg["role"], "content": msg["content"]})
                         groq_messages.append({"role": "user", "content": user_chat})
                         
-                        payload = {
-                            "model": "llama-3.3-70b-versatile",  
-                            "messages": groq_messages,
-                            "temperature": 0.7,
-                            "max_tokens": token_limit
-                        }
-                        
-                        max_retries = 3
-                        for retry_count in range(max_retries):
-                            try:
-                                groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
-                                if groq_res.status_code == 200:
-                                    chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
-                                    break
-                                elif groq_res.status_code == 429:
-                                    # 🤖 防禦降級措施
-                                    if "limit" in groq_res.text or "quota" in groq_res.text:
-                                        chahu_reply = "🥺 喵嗚... 抱歉店長，Groq大腦一分鐘之內回覆超載了，讓我喘氣個5秒鐘，再跟我說一次好嗎？"
-                                        break
-                                    time.sleep(1.5)
-                                    continue
-                                else:
-                                    chahu_reply = f"😮‍💨 喵嗚... 大腦線路有怪風（錯誤碼：{groq_res.status_code}）"
-                                    break
-                            except requests.exceptions.Timeout:
-                                time.sleep(1.0)
-                                continue
+                        payload = {"model": "llama-3.3-70b-versatile", "messages": groq_messages, "temperature": 0.7, "max_tokens": token_limit}
+                        groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
+                        if groq_res.status_code == 200:
+                            chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
                         else:
-                            chahu_reply = "😮‍💨 喵... 抱歉我想獨自睡一會或做個gym先，回來再跟你聊。"
+                            chahu_reply = "🥺 喵... 抱歉我想獨自睡一會或做個gym先，回來再跟你聊。"
 
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
@@ -638,9 +560,8 @@ with tab1:
                                 st.session_state.sync_rerun_key += 1
                                 st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                                 break
-                                
-                except Exception as e:
-                    chahu_reply = f"😮‍💨 貓毛卡住大腦了...（{str(e)}）"
+                except:
+                    chahu_reply = "😮‍💨 貓毛卡住大腦了..."
                 finally:
                     gc.collect()
                 
@@ -650,38 +571,141 @@ with tab1:
                 st.rerun()
 
 # ==========================================
-# 【分頁二：管理員後台（雪櫃）】
+# 【分頁二：📜 二樓（主打沉浸式小說純淨閱讀艙）】
 # ==========================================
 with tab2:
+    st.subheader("🪐 二樓地下圖書館")
+    st.caption("✨ 避開塵囂的深度閱讀空間。這裡不設訪客輸入窗口與 AI 貓咪，回歸純粹的紙質文字體悟。")
+    
+    # 🪵 精緻木質調三個獨立下拉選單，自動聯動互斥重置邏輯
+    col_l, col_m, col_s = st.columns(3)
+    
+    with col_l:
+        long_list = ["-- 請選擇長篇巨著 (10萬字+) --"] + novels_menu["長篇小說"]
+        sel_long = st.selectbox("📕 長篇小說選欄：", long_list, index=0)
+    with col_m:
+        mid_list = ["-- 請選擇中篇浮生 (5萬字±) --"] + novels_menu["中篇小說"]
+        sel_mid = st.selectbox("📙 中篇小說選欄：", mid_list, index=0)
+    with col_s:
+        short_list = ["-- 請選擇短篇微光 (1萬字±) --"] + novels_menu["短篇小說"]
+        sel_short = st.selectbox("📘 短篇小說選欄：", short_list, index=0)
+
+    # 🎛️ 互斥鎖核心：判定讀者到底最後點選了哪一本
+    chosen_novel = None
+    if sel_long and not sel_long.startswith("--"):
+        chosen_novel = sel_long
+    elif sel_mid and not sel_mid.startswith("--"):
+        chosen_novel = sel_mid
+    elif sel_short and not sel_short.startswith("--"):
+        chosen_novel = sel_short
+
+    # 🔄 當讀者改選別本書，自動將頁碼洗回第 1 頁
+    if chosen_novel and chosen_novel != st.session_state.active_novel_title:
+        st.session_state.active_novel_title = chosen_novel
+        st.session_state.novel_page_num = 1
+        st.rerun()
+
+    st.markdown("---")
+
+    if st.session_state.active_novel_title:
+        # ⚡ 從捷徑索引快取撈取精確 1000 字（不呼叫 AI 大腦，瞬間載入、一閃即出）
+        page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
+        
+        # 📖 頂部功能列：上一頁、下拉選單跳轉、下一頁
+        col_prev, col_drop, col_next = st.columns([1, 2, 1])
+        
+        # 🛡️ 軍規防連擊函數 (1.0秒黃金防禦防火牆)
+        def check_click_spam():
+            now = time.time()
+            elapsed = now - st.session_state.last_click_time
+            if elapsed < 1.0:
+                st.error("☕ 店小二端茶中... 閱讀是一場慢旅，請喝口茶、稍等 1 秒片刻再翻頁吧。")
+                return False
+            st.session_state.last_click_time = now
+            return True
+
+        with col_prev:
+            if st.button("⬅️ 上一頁", use_container_width=True, key="novel_prev_btn"):
+                if check_click_spam():
+                    if st.session_state.novel_page_num > 1:
+                        st.session_state.novel_page_num -= 1
+                        st.rerun()
+                    else:
+                        st.toast("已經是第一頁囉！")
+
+        with col_drop:
+            # 🎯 頁碼直接跳轉選單（徹底消滅手點 50 次酷刑）
+            page_options = list(range(1, total_pages + 1))
+            try:
+                curr_idx = page_options.index(st.session_state.novel_page_num)
+            except ValueError:
+                curr_idx = 0
+            
+            selected_page_drop = st.selectbox(
+                "快速跳轉頁碼：",
+                page_options,
+                index=curr_idx,
+                format_func=lambda x: f"第 {x} / {total_pages} 頁",
+                label_visibility="collapsed",
+                key="novel_page_jump_dropdown"
+            )
+            if selected_page_drop != st.session_state.novel_page_num:
+                st.session_state.novel_page_num = selected_page_drop
+                st.rerun()
+
+        with col_next:
+            if st.button("下一頁 ➡️", use_container_width=True, key="novel_next_btn"):
+                if check_click_spam():
+                    if st.session_state.novel_page_num < total_pages:
+                        st.session_state.novel_page_num += 1
+                        st.rerun()
+                    else:
+                        st.toast("已讀完整部作品，感謝店長/讀者留緣！")
+
+        # 📜 深夜羊皮紙質感閱讀艙渲染輸出
+        st.markdown(f"#### 《{st.session_state.active_novel_title}》")
+        protected_novel_chunk = inject_watermark(page_text)
+        
+        st.markdown(f"""
+            <div class="novel-container">
+                <div class="novel-paper-text">{protected_novel_chunk}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # 底部同步具備翻頁按鈕，完全契合沉浸式動線
+        st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
+        
+    else:
+        st.info("💡 請在上方點開【長篇】、【中篇】或【短篇】選單，翻開您想閱讀的長篇巨作。")
+
+# ==========================================
+# 【分頁三：🪟 水吧（店長後台管理與 Word 上傳）】
+# ==========================================
+with tab2 if not tab3 else tab3:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
     if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
-        st.subheader("🧠 茶壺小貓核心思維切換")
+        # 🧠 大腦核心切換（Pay-to-Use 滿血解禁）
         chosen_brain = st.radio(
-            "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
-            ["Google Gemini", "Groq (Llama-3)"],
-            index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1,
-            horizontal=True
+            "請為茶壺選擇思維核心大腦：", ["Google Gemini", "Groq (Llama-3)"],
+            index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True
         )
-        
         if chosen_brain != st.session_state.chahu_selected_brain:
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("UPDATE chahu_brain SET active_brain=? WHERE id=1", (chosen_brain,))
             conn.commit()
             conn.close()
-            
             st.session_state.chahu_selected_brain = chosen_brain
             st.cache_data.clear() 
-            st.toast(f"🧠 大腦核心已成功「永久儲存」至資料庫：{chosen_brain}！")
+            st.toast(f"🧠 大腦核心儲存成功：{chosen_brain}！")
             st.rerun()
             
         st.markdown("---")
-        
-        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=200)
+        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=150)
         if st.button("🧬 注入全新靈魂印記"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
@@ -693,11 +717,59 @@ with tab2:
             st.rerun()
             
         st.markdown("---")
-        with st.expander("➕ 上架新作品"):
-            new_title = st.text_input("作品名稱")
-            new_content = st.text_area("作品內容", height=200)
-            is_poem_checked = st.checkbox("📜 這是詩（全篇完整排版打開）")
+        # 🎪 二樓新骨幹：高熵小說上傳艙（支援直接拖曳 MS Word .docx 檔案）
+        st.subheader("📚 二樓：匯入長/中/短篇小說 (.docx)")
+        st.caption("💡 程式會自動榨乾 Word 內文，每 1000 字自動精準切片並建立資料庫分頁。Word 暫存檔案用完立馬銷毀，雲端絕不留任何隱私廢檔。")
+        
+        with st.form("novel_upload_form", clear_on_submit=True):
+            novel_upload_title = st.text_input("小說標題（例如：天空之城）")
+            novel_upload_type = st.selectbox("歸類小說標籤：", ["長篇小說", "中篇小說", "短篇小說"])
+            uploaded_docx = st.file_uploader("請拖曳上傳您的 MS Word 檔案 (.docx)", type=["docx"])
+            submit_upload_novel = st.form_submit_button("⚡ 開始全自動切片導入")
             
+            if submit_upload_novel and uploaded_docx and novel_upload_title:
+                try:
+                    # 在記憶體 RAM 中瞬時提取 Word，安全防隱私洩漏
+                    doc = docx.Document(uploaded_docx)
+                    full_text_list = []
+                    for para in doc.paragraphs:
+                        if para.text.strip():
+                            full_text_list.append(para.text)
+                    full_text = "\n\n".join(full_text_list)
+                    
+                    # ✂️ 自動切片演算法：精準限制每頁 1000 字
+                    chunk_size = 1000
+                    text_chunks = [full_text[i:i+chunk_size] for i in range(0, len(full_text), chunk_size)]
+                    
+                    if text_chunks:
+                        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+                        c = conn.cursor()
+                        # 防止重複導入，先清除同名舊檔案
+                        c.execute("DELETE FROM novels WHERE title=?", (novel_upload_title,))
+                        
+                        # 迴圈批次寫入結構表
+                        for page_idx, chunk_data in enumerate(text_chunks, start=1):
+                            c.execute(
+                                "INSERT INTO novels (title, type, page_num, content) VALUES (?, ?, ?, ?)",
+                                (novel_upload_title, novel_upload_type, page_idx, chunk_data)
+                            )
+                        conn.commit()
+                        conn.close()
+                        
+                        # 🧹 強制發動記憶體垃圾回收車
+                        del doc, full_text_list, full_text, text_chunks
+                        gc.collect()
+                        st.cache_data.clear()
+                        st.success(f"🎉 滿血入庫！《{novel_upload_title}》已成功切分成 {page_idx} 頁儲存！")
+                        st.rerun()
+                except Exception as docx_err:
+                    st.error(f"❌ Word 解析失敗，請檢查格式。錯誤詳情：{str(docx_err)}")
+
+        st.markdown("---")
+        with st.expander("➕ 上架新作品（一樓：詩和散文專用）"):
+            new_title = st.text_input("作品名稱")
+            new_content = st.text_area("作品內容", height=150)
+            is_poem_checked = st.checkbox("📜 這是詩（全篇完整排版打開）")
             if st.button("確認上架"):
                 if new_title and new_content:
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -706,52 +778,54 @@ with tab2:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.success(f"🎉 《{new_title}》已匯入！")
+                    st.success(f"🎉 《{new_title}》已匯入一樓書架！")
                     st.rerun()
 
         st.markdown("---")
-        st.subheader("🛡️ 館藏備份與還原")
+        st.subheader("🛡️ 館藏備份與管理")
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
-        st.download_button(label="💾 下載全店館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
+        st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
         
-        uploaded_backup = st.file_uploader("上傳備份檔案 (.json)", type=["json"])
-        if uploaded_backup is not None and st.button("⚡ 確認執行全面還原"):
-            try:
-                restore_data = json.load(uploaded_backup)
-                conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-                c = conn.cursor()
-                for item in restore_data:
-                    c.execute("SELECT id FROM books WHERE title=?", (item['title'],))
-                    if not c.fetchone():
-                        c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item['title'], item['content'], item.get('is_poem', 0)))
-                conn.commit()
-                conn.close()
-                st.cache_data.clear()
-                st.success("🎉 全店館藏已滿血復活！")
-                st.rerun()
-            except Exception as ex:
-                st.error(f"還原失敗：{str(ex)}")
-        
-        st.markdown("---")
         if st.button("🗑️ 清空留緣牆"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-            c = conn.cursor()
+            c = db_conn = conn.cursor()
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
             st.cache_data.clear()
             st.rerun()
             
+        # 館藏下架總管
+        st.write("📋 **一樓作品管理列表：**")
         for bk in all_books_list:
             bk_id, bk_title, _, bk_poem = bk
             col1, col2 = st.columns([5, 1])
-            with col1:
-                st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
+            with col1: st.write(f"《{bk_title}》 {'[📜 詩]' if bk_poem==1 else '[📝 散文]'}")
             with col2:
                 if st.button("下架", key=f"del_{bk_id}"):
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()
                     c.execute("DELETE FROM books WHERE id=?", (bk_id,))
+                    conn.commit()
+                    conn.close()
+                    st.cache_data.clear()
+                    st.rerun()
+
+        st.write("📋 **二樓小說管理列表：**")
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT title, type FROM novels")
+        all_db_novels = c.fetchall()
+        conn.close()
+        
+        for n_title, n_type in all_db_novels:
+            col1, col2 = st.columns([5, 1])
+            with col1: st.write(f"《{n_title}》 【{n_type}】")
+            with col2:
+                if st.button("下架", key=f"del_novel_{n_title}"):
+                    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+                    c = conn.cursor()
+                    c.execute("DELETE FROM novels WHERE title=?", (n_title,))
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
