@@ -135,6 +135,7 @@ groq_api_key = get_groq_api_key()
 # 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
 # ==========================================
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
+CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif" # 👈 店長拿到新睡覺圖直鏈後，請替換這裡的網址！
 
 @st.cache_data
 def load_assets_cached():
@@ -479,7 +480,15 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
+        # 🐈 🎭 【動態視覺劇場】：依據聊天輪數，動態切換茶壺的狀態頭像與文字標籤
+        if "chat_turns" in st.session_state and st.session_state.chat_turns >= 20:
+            avatar_html = f'<img src="{CHAHU_SLEEP_GIF_URL}" class="chahu-photo">'
+            chahu_status_title = "「茶壺」已經睡著了... 😴"
+            chahu_status_subtitle = "尾巴正在無意識地慢搖，請勿拍打餵食"
+        else:
+            avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
+            chahu_status_title = "我是店長的伙記，我叫「茶壺」"
+            chahu_status_subtitle = "一隻過度活躍的ESFP小貓"
 
         st.markdown(f"""
             <div class="chahu-minimal-area">
@@ -489,8 +498,8 @@ with tab1:
                     </div>
                     {avatar_html}
                 </div>
-                <div class="chahu-title">我是店長的伙記，我叫「茶壺」</div>
-                <div class="chahu-subtitle">一隻過度活躍的ESFP小貓</div>
+                <div class="chahu-title">{chahu_status_title}</div>
+                <div class="chahu-subtitle">{chahu_status_subtitle}</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -627,10 +636,11 @@ with tab1:
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
-                # 🛠️ 升級容錯 Regex：清除可能因為截斷而殘留的 [[OPEN_BOOK:... 內容
+                # 🛠_ 升級容錯 Regex：清除可能因為截斷而殘留的 [[OPEN_BOOK:... 內容
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
-                if match:
-                    st.rerun()
+                
+                # 🐈 核心視覺同步更新：若達 20 輪或觸發翻書，強制刷新以確保畫面與頭像同步更新
+                st.rerun()
 
 # ==========================================
 # 【分頁二：管理員後台（雪櫃）】
@@ -639,7 +649,7 @@ with tab2:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
-    if admin_password == "JJJ":
+    if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
         # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
