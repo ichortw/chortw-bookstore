@@ -135,7 +135,7 @@ groq_api_key = get_groq_api_key()
 # 🐈 圖片與 Banner 記憶快取魔法 (已改為直鏈外接圖床，徹底解放 Render 頻寬！)
 # ==========================================
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
-CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif" # 👈 店長拿到新睡覺圖直鏈後，請替換這裡的網址！
+CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
 
 @st.cache_data
 def load_assets_cached():
@@ -240,7 +240,6 @@ st.markdown(f"""
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
-    /* 🐈 將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
     .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
@@ -379,7 +378,6 @@ with tab1:
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                # 強化換行字元替換，並配合 CSS 'white-space: pre-wrap' 雙重保障詩歌排版
                 formatted_poem = protected_poem.replace('\n', '<br>').replace('\\n', '<br>')
                 st.markdown(f'<div class="poem-text">{formatted_poem}</div>', unsafe_allow_html=True)
             else:
@@ -480,7 +478,6 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # 🐈 🎭 【動態視覺劇場】：依據聊天輪數，動態切換茶壺的狀態頭像與文字標籤
         if "chat_turns" in st.session_state and st.session_state.chat_turns >= 20:
             avatar_html = f'<img src="{CHAHU_SLEEP_GIF_URL}" class="chahu-photo">'
             chahu_status_title = "「茶壺」已經睡著... 😴"
@@ -508,15 +505,13 @@ with tab1:
             
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
-                # 🛠️ 升級容錯 Regex：防止歷史對話渲染時穿幫
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', msg["content"]))
                 
         if user_chat := st.chat_input("啊！你來了，我去冲茶先..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
-            n = st.session_state.chat_turns  # 記住當前是第幾輪回應
+            n = st.session_state.chat_turns
             
-            # ✂️ 對話歷史紀錄下調到 6 輪
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
@@ -526,14 +521,8 @@ with tab1:
             match = None  
             current_brain = st.session_state.chahu_selected_brain
             
-            # ===================================================
-            # 🐈 🎭 「動態裝睡時鐘」劇場算法核心控制區
-            # ===================================================
             if n >= 20:
-                # 🛑 鋼鐵護盾第 20 輪以後：徹底切斷大腦，不花半毛 API 費！
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
-                
-                # 指數懲罰等待時間：第 n 輪 * 0.2 秒，越多回應等越久
                 wait_time = n * 0.2
                 time.sleep(wait_time)
                 
@@ -544,25 +533,22 @@ with tab1:
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
-                    
-                    # ✂️ 將帶入大腦的當前書籍內文字數直接對半砍到 400 字
                     current_work_content_chunk = active_content[:400]
                     
-                    # 💡 依據不同輪數動態調配貓咪的心情提示與字數硬限制
+                    # 💡 雙大腦全面放寬 token_limit 到 150 以上，徹底避免 Gemini 與 Groq 因截斷引發的 429 或 Part 崩潰
                     if 1 <= n <= 3:
-                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數絕對不能超過 20 個字』！"
-                        token_limit = 25
+                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數務必極其短小精悍，絕對不能超過 20 個字』！"
+                        token_limit = 150  # 🛡️ 擴張安全緩衝天花板
                     elif 4 <= n <= 9:
-                        # 🎭 檢查這一輪是不是被選中的「熱情爆發輪」彩蛋
                         if n in st.session_state.burst_turns:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮你 ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
-                            token_limit = 500
+                            token_limit = 600
                         else:
-                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
-                            token_limit = 200
+                            mood_instruction = " ==========================================\n【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
+                            token_limit = 350
                     else:  # 10 <= n <= 19
-                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數絕對不能超過 15 個字』！"
-                        token_limit = 20
+                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數務必極其短小，絕對不能超過 15 個字』！"
+                        token_limit = 150  # 🛡️ 擴張安全緩衝天花板
 
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
@@ -581,7 +567,7 @@ with tab1:
                         model_chat = genai.GenerativeModel(
                             model_name="gemini-2.5-flash",
                             system_instruction=dynamic_system_prompt,
-                            generation_config={"max_output_tokens": token_limit} # 動態硬性字數封頂，保護頻寬
+                            generation_config={"max_output_tokens": token_limit}
                         )
                         gemini_history = []
                         for msg in st.session_state.messages[:-1]:
@@ -590,7 +576,16 @@ with tab1:
                         
                         chat_session = model_chat.start_chat(history=gemini_history)
                         response = chat_session.send_message(user_chat)
-                        chahu_reply = response.text
+                        
+                        # 🛡️ 鋼鐵防護網：檢查 Gemini 回傳狀態，防止 finish_reason=2 造成的爆發性崩潰
+                        try:
+                            chahu_reply = response.text
+                        except Exception:
+                            # 降級安全策略：萬一真的不小心被切斷，從已經生成的 candidates 裡抓取殘留文字
+                            if response.candidates and response.candidates[0].content.parts:
+                                chahu_reply = response.candidates[0].content.parts[0].text
+                            else:
+                                chahu_reply = "🐾 喵嗚... 剛才大腦在想別的事情，你可以再跟我說一次嗎？"
                     
                     elif current_brain == "Groq (Llama-3)":
                         groq_url = "https://api.groq.com/openai/v1/chat/completions"
@@ -608,16 +603,28 @@ with tab1:
                             "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
-                            "max_tokens": token_limit # 動態硬性封頂
+                            "max_tokens": token_limit
                         }
                         
-                        groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
-                        if groq_res.status_code == 200:
-                            chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
+                        max_retries = 3
+                        for retry_count in range(max_retries):
+                            try:
+                                groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
+                                if groq_res.status_code == 200:
+                                    chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
+                                    break
+                                elif groq_res.status_code == 429:
+                                    time.sleep(1.5)
+                                    continue
+                                else:
+                                    chahu_reply = f"😮‍💨 喵嗚... 大腦線路有怪風（錯誤碼：{groq_res.status_code}）"
+                                    break
+                            except requests.exceptions.Timeout:
+                                time.sleep(1.0)
+                                continue
                         else:
-                            chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
+                            chahu_reply = "😮‍💨 喵... 抱歉我想獨自睡一會或做個gym先，回來再跟你聊。"
 
-                    # 💡 提取翻書書名仍保留非貪婪模式，確保精準尋找完整配對
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
                         book_open_title = match.group(1).strip()
@@ -636,10 +643,7 @@ with tab1:
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
-                # 🛠_ 升級容錯 Regex：清除可能因為截斷而殘留的 [[OPEN_BOOK:... 內容
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
-                
-                # 🐈 核心視覺同步更新：若達 20 輪或觸發翻書，強制刷新以確保畫面與頭像同步更新
                 st.rerun()
 
 # ==========================================
@@ -652,7 +656,6 @@ with tab2:
     if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
-        # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
         st.subheader("🧠 茶壺小貓核心思維切換")
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦（切換不消耗 any API 流量）：",
@@ -703,7 +706,6 @@ with tab2:
                     st.success(f"🎉 《{new_title}》已匯入！")
                     st.rerun()
 
-        # 🛡️ 館藏備份與還原
         st.markdown("---")
         st.subheader("🛡️ 館藏備份與還原")
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
