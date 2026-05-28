@@ -495,7 +495,8 @@ with tab1:
             
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
-                st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', msg["content"]))
+                # 🛠️ 升級容錯 Regex：防止歷史對話渲染時穿幫
+                st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', msg["content"]))
                 
         if user_chat := st.chat_input("啊！你來了，我去冲茶先..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
@@ -599,6 +600,7 @@ with tab1:
                         else:
                             chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
 
+                    # 💡 注意：提取翻書書名仍保留非貪婪模式，確保精準尋找完整配對
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
                         book_open_title = match.group(1).strip()
@@ -617,7 +619,8 @@ with tab1:
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
-                st.write(re.sub(r'\[\[OPEN_BOOK:.*?\]\]', '', chahu_reply))
+                # 🛠️ 升級容錯 Regex：清除可能因為截斷而殘留的 [[OPEN_BOOK:... 內容
+                st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
                 if match:
                     st.rerun()
 
