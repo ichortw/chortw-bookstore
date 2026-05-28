@@ -239,7 +239,7 @@ st.markdown(f"""
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
     
-    /* 🐈 核心修正：將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
+    /* 🐈 將貓咪頭像再度加大至寬度 360px，高度自動按原圖比例縮放避免變形 */
     .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; border: none !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
@@ -286,6 +286,10 @@ if "is_fully_expanded" not in st.session_state:
 
 if "chat_turns" not in st.session_state:
     st.session_state.chat_turns = 0
+
+# 🎨 🎭 秘密彩蛋初始化：在 4 到 9 輪之間，隨機選取兩輪作為爆發輪（多於200字少於400字）
+if "burst_turns" not in st.session_state:
+    st.session_state.burst_turns = random.sample(range(4, 10), 2)
 
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
@@ -374,7 +378,7 @@ with tab1:
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                # 🛠️ 核心修復1：強化換行字元替換，並配合 CSS 'white-space: pre-wrap' 雙重保障詩歌排版
+                # 強化換行字元替換，並配合 CSS 'white-space: pre-wrap' 雙重保障詩歌排版
                 formatted_poem = protected_poem.replace('\n', '<br>').replace('\\n', '<br>')
                 st.markdown(f'<div class="poem-text">{formatted_poem}</div>', unsafe_allow_html=True)
             else:
@@ -503,7 +507,7 @@ with tab1:
             st.session_state.chat_turns += 1
             n = st.session_state.chat_turns  # 記住當前是第幾輪回應
             
-            # ✂️ 核心節食手術 2：對話歷史紀錄下調到 6 輪
+            # ✂️ 對話歷史紀錄下調到 6 輪
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
@@ -518,7 +522,6 @@ with tab1:
             # ===================================================
             if n >= 20:
                 # 🛑 鋼鐵護盾第 20 輪以後：徹底切斷大腦，不花半毛 API 費！
-                # 敷衍、懶散不想理、裝傻，溫柔有禮不冒犯
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
                 
                 # 指數懲罰等待時間：第 n 輪 * 0.2 秒，越多回應等越久
@@ -533,7 +536,7 @@ with tab1:
                 try:
                     current_work_title = st.session_state.current_book_title
                     
-                    # ✂️ 核心節食手術 1：將帶入大腦的當前書籍內文字數直接對半砍到 400 字
+                    # ✂️ 將帶入大腦的當前書籍內文字數直接對半砍到 400 字
                     current_work_content_chunk = active_content[:400]
                     
                     # 💡 依據不同輪數動態調配貓咪的心情提示與字數硬限制
@@ -541,8 +544,13 @@ with tab1:
                         mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數絕對不能超過 20 個字』！"
                         token_limit = 25
                     elif 4 <= n <= 9:
-                        mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
-                        token_limit = 200
+                        # 🎭 檢查這一輪是不是被選中的「熱情爆發輪」彩蛋
+                        if n in st.session_state.burst_turns:
+                            mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮你 ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
+                            token_limit = 500
+                        else:
+                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
+                            token_limit = 200
                     else:  # 10 <= n <= 19
                         mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數絕對不能超過 15 個字』！"
                         token_limit = 20
@@ -600,7 +608,7 @@ with tab1:
                         else:
                             chahu_reply = f"😮‍💨 喵嗚... Groq 伺服器回傳了錯誤：{groq_res.status_code}"
 
-                    # 💡 注意：提取翻書書名仍保留非貪婪模式，確保精準尋找完整配對
+                    # 💡 提取翻書書名仍保留非貪婪模式，確保精準尋找完整配對
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
                         book_open_title = match.group(1).strip()
@@ -631,7 +639,7 @@ with tab2:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
     
-    if admin_password == "Echo1102pint":
+    if admin_password == "JJJ":
         st.success("🔓 店長身分驗證成功！")
         
         # --- 🧠 大腦切換人手閘刀（已綁定資料庫永久記憶） ---
