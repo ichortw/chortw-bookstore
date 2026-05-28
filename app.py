@@ -7,6 +7,7 @@ import re
 import os
 import gc
 import requests
+import time
 from datetime import datetime
 import google.generativeai as genai
 import base64
@@ -355,7 +356,7 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            if st.button("📖 翻一翻", help="茶壺幫你隨手翻一篇！", key="top_unbox_btn"):
+            if st.button("📖 翻一翻", help="茶壺幫你隨手翻篇！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
                 if not remain_titles:
                     remain_titles = [b[1] for b in all_books_list]
@@ -499,6 +500,7 @@ with tab1:
         if user_chat := st.chat_input("啊！你來了，我去冲茶先..."):
             st.session_state.messages.append({"role": "user", "content": user_chat})
             st.session_state.chat_turns += 1
+            n = st.session_state.chat_turns  # 記住當前是第幾輪回應
             
             # ✂️ 核心節食手術 2：對話歷史紀錄下調到 6 輪
             if len(st.session_state.messages) > 6:
@@ -510,7 +512,19 @@ with tab1:
             match = None  
             current_brain = st.session_state.chahu_selected_brain
             
-            if current_brain == "Google Gemini" and not has_gemini:
+            # ===================================================
+            # 🐈 🎭 「動態裝睡時鐘」劇場算法核心控制區
+            # ===================================================
+            if n >= 20:
+                # 🛑 鋼鐵護盾第 20 輪以後：徹底切斷大腦，不花半毛 API 費！
+                # 敷衍、懶散不想理、裝傻，溫柔有禮不冒犯
+                chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
+                
+                # 指數懲罰等待時間：第 n 輪 * 0.2 秒，越多回應等越久
+                wait_time = n * 0.2
+                time.sleep(wait_time)
+                
+            elif current_brain == "Google Gemini" and not has_gemini:
                 chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦... 請確認環境變數裡有沒有填對 `GEMINI_API_KEY` 喔！"
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
                 chahu_reply = "😮‍💨 喵嗚... 我聞不會 Groq 大腦的味道... 請確認環境變數裡有沒有填對 `GROQ_API_KEY` 喔！"
@@ -521,21 +535,35 @@ with tab1:
                     # ✂️ 核心節食手術 1：將帶入大腦的當前書籍內文字數直接對半砍到 400 字
                     current_work_content_chunk = active_content[:400]
                     
+                    # 💡 依據不同輪數動態調配貓咪的心情提示與字數硬限制
+                    if 1 <= n <= 3:
+                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數絕對不能超過 20 個字』！"
+                        token_limit = 25
+                    elif 4 <= n <= 9:
+                        mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
+                        token_limit = 200
+                    else:  # 10 <= n <= 19
+                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數絕對不能超過 15 個字』！"
+                        token_limit = 20
+
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
 【當前茶室環境】：讀者現在正在店裡專心閱讀您的這篇作品：《{current_work_title}》。
 作品內文如下（已精簡傳輸）：
 {current_work_content_chunk}
 
+{mood_instruction}
+
 【茶壺行為最高指令】：
-1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用你 ESFP 傲嬌、愛八卦、喜歡碎碎念的可愛語氣做出精簡有趣的回覆，順便幫忙銳利地抓出錯別字。
+1. 請你把注意力完全集中在眼前這篇作品，或是讀者的隨口閒聊上。用符合你此時【當前心情】的可愛語氣做出回覆，順便幫忙銳利地抓出錯別字。
 2. 切記！絕對不要長篇大論，也不用去提及其他沒被選中的作品！
-3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見血！"""
+3. 【店長的絕對鐵律】：不論在什麼情況下，你的所有回答、碎碎念、牢騷中，都「嚴禁出現『唉』字」！哪怕是語氣助詞也絕對不可以！抓錯別字要保持毒舌和一針見微！"""
 
                     if current_brain == "Google Gemini":
                         model_chat = genai.GenerativeModel(
                             model_name="gemini-2.5-flash",
-                            system_instruction=dynamic_system_prompt
+                            system_instruction=dynamic_system_prompt,
+                            generation_config={"max_output_tokens": token_limit} # 動態硬性字數封頂，保護頻寬
                         )
                         gemini_history = []
                         for msg in st.session_state.messages[:-1]:
@@ -562,7 +590,7 @@ with tab1:
                             "model": "llama-3.3-70b-versatile",  
                             "messages": groq_messages,
                             "temperature": 0.7,
-                            "max_tokens": 400
+                            "max_tokens": token_limit # 動態硬性封頂
                         }
                         
                         groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=10)
