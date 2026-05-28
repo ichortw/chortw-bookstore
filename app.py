@@ -362,7 +362,7 @@ with tab1:
 
             if st.button("📖 翻一翻", help="茶壺幫你隨手翻篇！", key="top_unbox_btn"):
                 remain_titles = [b[1] for b in all_books_list if b[1] != st.session_state.current_book_title]
-                if not remove_titles:
+                if not remain_titles: # 🌟 已修復這裡的變數拼寫錯誤
                     remain_titles = [b[1] for b in all_books_list]
                 chosen = random.choice(remain_titles)
                 st.session_state.current_book_title = chosen
@@ -538,17 +538,17 @@ with tab1:
                     # 💡 雙大腦安全氣囊升級：將天花板全面拉高到指令的 3 倍以上，解決中文與 Emoji 暴吃 Token 被截斷的問題
                     if 1 <= n <= 3:
                         mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數務必極其短小精悍，絕對不能超過 20 個字』！"
-                        token_limit = 300  # 🌟 升級擴張安全緩衝
+                        token_limit = 300  
                     elif 4 <= n <= 9:
                         if n in st.session_state.burst_turns:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮你 ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
-                            token_limit = 1200 # 🌟 為 400 字中文文學長文預留 3 倍以上的絕對充裕空間！
+                            token_limit = 1200 
                         else:
-                            mood_instruction = " ==========================================\n【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
-                            token_limit = 600  # 🌟 升級擴張安全緩衝
+                            mood_instruction = " ==========================================\n【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮死黨 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
+                            token_limit = 600  
                     else:  # 10 <= n <= 19
                         mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數務必極其短小，絕對不能超過 15 個字』！"
-                        token_limit = 300  # 🌟 升級擴張安全緩衝
+                        token_limit = 300  
 
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
@@ -613,6 +613,10 @@ with tab1:
                                     chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
                                     break
                                 elif groq_res.status_code == 429:
+                                    # 🤖 防禦降級措施
+                                    if "limit" in groq_res.text or "quota" in groq_res.text:
+                                        chahu_reply = "🥺 喵嗚... 抱歉店長，Groq大腦一分鐘之內回覆超載了，讓我喘氣個5秒鐘，再跟我說一次好嗎？"
+                                        break
                                     time.sleep(1.5)
                                     continue
                                 else:
