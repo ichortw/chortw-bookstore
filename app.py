@@ -541,20 +541,20 @@ with tab1:
                     current_work_title = st.session_state.current_book_title
                     current_work_content_chunk = active_content[:400]
                     
-                    # 💡 依據不同輪數動態調配貓咪的心情提示與字數硬限制
+                    # 💡 依據不同輪數動態調配貓咪的心情提示與字數（放寬 token_limit 避免繁體中文在大腦窒息）
                     if 1 <= n <= 3:
-                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數絕對不能超過 20 個字』！"
-                        token_limit = 25
+                        mood_instruction = "【當前心情】：你目前對客人保持文青的冷淡觀察，正在暗中打量他。請保持高冷、稍微敷衍，且你的回覆『總字數務必極其短小精悍，絕對不能超過 20 個字』！"
+                        token_limit = 150  # 🛡️ 提高至 150，確保繁體中文與表情符號傳輸不崩潰
                     elif 4 <= n <= 9:
                         if n in st.session_state.burst_turns:
-                            mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮你 ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
-                            token_limit = 500
+                            mood_instruction = "【當前心情】：你跟客人極度投緣，這一輪你突然興致爆棚，話匣子全面大失控！請發揮 you ESFP 話多八卦的最高境界，熱烈分享，『回覆總字數必須大於 200 字，且嚴格控制在 400 字以內』！"
+                            token_limit = 600
                         else:
                             mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子徹底打開，興致勃勃！請發揮你 ESFP 話多八卦、熱情聊天的靈魂，但『總字數控制在 150 個字以內』。"
-                            token_limit = 200
+                            token_limit = 350
                     else:  # 10 <= n <= 19
-                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數絕對不能超過 15 個字』！"
-                        token_limit = 20
+                        mood_instruction = "【當前心情】：客人一直聊個不停，你開始覺得有些不耐煩和疲倦，很想去睡覺。請表現出冷淡與瘋狂敷衍、漫不經心的裝傻態度，且『總字數務必極其短小，絕對不能超過 15 個字』！"
+                        token_limit = 150  # 🛡️ 提高至 150，拒絕 429 假警報
 
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"""
 
@@ -621,7 +621,7 @@ with tab1:
                                     continue  # 繼續執行下一次 for 迴圈重試
                                 else:
                                     # 常規 HTTP 故障（如 500），直接印出不浪費重試時間
-                                    chahu_reply = f"😮‍💨 喵... 大腦線路有怪風（錯誤碼：{groq_res.status_code}）"
+                                    chahu_reply = f"😮‍💨 喵嗚... 大腦線路有怪風（錯誤碼：{groq_res.status_code}）"
                                     break
                             except requests.exceptions.Timeout:
                                 # 連線逾時也算異常，在背景等待 1 秒後重試
