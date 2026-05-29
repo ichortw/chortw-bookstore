@@ -1,18 +1,19 @@
-# 使用官方標準版 Python 環境（內建編譯工具，安裝套件不卡關）
-FROM python:3.9
+# 1. 使用官方 Python 環境
+FROM python:3.9-slim
 
-# 設定工作目錄
+# 2. 設定工作目錄（後續的指令都會在此目錄下執行）
 WORKDIR /app
 
-# 把 GitHub 倉庫裡的所有程式碼複製到 /app 內
-COPY . /app
+# 3. 先複製依賴文件，並安裝套件（利用 Docker 快取機制，沒改套件時編譯極快）
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# 執行安裝
-RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+# 4. 複製專案內的所有其他程式碼到 /app
+COPY . .
 
-# 暴露通訊埠
+# 5. 暴露 Zeabur 或 容器預設的通訊埠
 EXPOSE 8080
 
-# 啟動指令
-CMD ["streamlit", "run", "app.py", "--server.port", "8080", "--server.address", "0.0.0.0"]
+# 6. 啟動指令（加入 headless 參數，確保 Streamlit 在伺服器環境下不會跳出瀏覽器請求而崩潰）
+CMD ["streamlit", "run", "app.py", "--server.port=8080", "--server.address=0.0.0.0", "--server.headless=true"]
