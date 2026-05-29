@@ -176,19 +176,10 @@ def get_groq_api_key():
 has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
-# 外接免費圖床網址，徹底守護 Render 頻寬
+# 🌐 外接免費圖床網址，全面升級為零傳輸資產，徹底守護 Render 頻寬
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
-
-@st.cache_data
-def load_assets_cached():
-    banner_base64 = ""
-    if os.path.exists("banner1.jpg"):
-        with open("banner1.jpg", "rb") as banner_file:
-            banner_base64 = base64.b64encode(banner_file.read()).decode()
-    return banner_base64
-
-banner_base64 = load_assets_cached()
+BANNER_URL = "https://i.postimg.cc/RhbMMJcH/banner1.jpg"
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
@@ -212,7 +203,7 @@ st.markdown(f"""
         pointer-events: none !important; 
     }}
     .zhuoji-banner {{
-        background-image: url('data:image/jpeg;base64,{banner_base64}');
+        background-image: url('{BANNER_URL}');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
