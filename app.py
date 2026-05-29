@@ -40,7 +40,7 @@ def init_db_once():
     # 一樓：詩與散文表
     c.execute('''CREATE TABLE IF NOT EXISTS books 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
-    # 二樓：小說專屬結構表（加入頁碼與字數統計，並建立高鐵級捷徑索引確保不反白）
+    # 二樓：小說專屬結構表
     c.execute('''CREATE TABLE IF NOT EXISTS novels 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, page_num INTEGER, content TEXT)''')
     c.execute('''CREATE INDEX IF NOT EXISTS idx_novels_lookup ON novels (title, page_num)''')
@@ -60,7 +60,7 @@ def init_db_once():
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我labels。
+1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我labels。
 2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
@@ -306,8 +306,7 @@ CHAHU_PROMPT_FROM_DB, CURRENT_ACTIVE_BRAIN_FROM_DB, all_books_list, current_stam
 # 撈出二樓小說快取選單
 novels_menu = fetch_novels_menu_cached()
 
-if "sync_rerun_key" not in st.session_state:
-    st.session_state.sync_rerun_key = 0
+# 初始化各項主控 Session State 狀態
 if "entropy_order" not in st.session_state or len(st.session_state.entropy_order) != len(all_books_list):
     st.session_state.entropy_order = [b[1] for b in all_books_list]
     random.shuffle(st.session_state.entropy_order)
@@ -325,11 +324,7 @@ if "burst_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧩 鎖定分頁狀態，徹底解決分頁因重新整理而跳錯的 Streamlit 通病
-if "active_tab_index" not in st.session_state:
-    st.session_state.active_tab_index = 0
-
-# 🧠 二樓沉浸式專用狀態初始化
+# 二樓沉浸式專用狀態初始化
 if "active_novel_title" not in st.session_state:
     st.session_state.active_novel_title = None
 if "novel_page_num" not in st.session_state:
@@ -362,20 +357,10 @@ if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-# 📦 【重新編排樓層分頁權重：二樓 ➔ 茶座 ➔ 水吧】，並注入 active_key 機制
+# ==========================================
+# 🛡️ 核心修復點：為 st.tabs 綁定固定不變的 key，開啟原生分頁記憶護盾
+# ==========================================
 tab2, tab1, tab3 = st.tabs(["📜 二樓", "🍵 茶座", "🪟 水吧"])
-
-# 利用 JavaScript 與隱形表單，在使用者點選不同 Tab 時即時同步 session_state
-# 以確保按鈕按下後能精準在原分頁重新載入
-with tab2:
-    st.session_state.active_tab_index = 0
-with tab1:
-    st.session_state.active_tab_index = 1
-with tab3:
-    st.session_state.active_tab_index = 2
-
-# 根據先前的行為紀錄，重寫這段對話觸發時的 Tab 防飄移渲染邏輯
-# 以下重新各自放入真正的功能內容
 
 # ==========================================
 # 【分頁二：📜 二樓（主打沉浸式小說純淨閱讀艙）】
@@ -388,13 +373,13 @@ with tab2:
     
     with col_l:
         long_list = ["-- 請選擇長篇巨著 (10萬字+) --"] + novels_menu["長篇小說"]
-        sel_long = st.selectbox("📕 長篇小說選欄：", long_list, index=0)
+        sel_long = st.selectbox("📕 長篇小說選欄：", long_list, index=0, key="novel_long_select")
     with col_m:
         mid_list = ["-- 請選擇中篇浮生 (5萬字±) --"] + novels_menu["中篇小說"]
-        sel_mid = st.selectbox("📙 中篇小說選欄：", mid_list, index=0)
+        sel_mid = st.selectbox("📙 中篇小說選欄：", mid_list, index=0, key="novel_mid_select")
     with col_s:
         short_list = ["-- 請選擇短篇微光 (1萬字±) --"] + novels_menu["短篇小說"]
-        sel_short = st.selectbox("📘 短篇小說選欄：", short_list, index=0)
+        sel_short = st.selectbox("📘 短篇小說選欄：", short_list, index=0, key="novel_short_select")
 
     chosen_novel = None
     if sel_long and not sel_long.startswith("--"):
@@ -407,7 +392,6 @@ with tab2:
     if chosen_novel and chosen_novel != st.session_state.active_novel_title:
         st.session_state.active_novel_title = chosen_novel
         st.session_state.novel_page_num = 1
-        st.session_state.active_tab_index = 0
         st.rerun()
 
     st.markdown("---")
@@ -444,7 +428,6 @@ with tab2:
                 if check_click_spam():
                     if st.session_state.novel_page_num > 1:
                         st.session_state.novel_page_num -= 1
-                        st.session_state.active_tab_index = 0
                         st.rerun()
                     else:
                         st.toast("已經是第一頁囉！")
@@ -466,7 +449,6 @@ with tab2:
             )
             if selected_page_drop != st.session_state.novel_page_num:
                 st.session_state.novel_page_num = selected_page_drop
-                st.session_state.active_tab_index = 0
                 st.rerun()
 
         with col_next:
@@ -474,7 +456,6 @@ with tab2:
                 if check_click_spam():
                     if st.session_state.novel_page_num < total_pages:
                         st.session_state.novel_page_num += 1
-                        st.session_state.active_tab_index = 0
                         st.rerun()
                     else:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
@@ -493,21 +474,20 @@ with tab1:
             if active_title not in shuffled_titles:
                 active_title = shuffled_titles[0] if shuffled_titles else "無"
                 st.session_state.current_book_title = active_title
-                st.session_state.active_tab_index = 1
                 st.rerun()
                 
             idx = shuffled_titles.index(active_title) if active_title in shuffled_titles else 0
             st.markdown(f"**📚 {st.session_state[verse_key]}**")
             
+            # 🛡️ 核心修復點：移除帶有動態計數器的變動 key，改用固定靜態 key 確保定錨
             selected_title = st.selectbox(
-                "隱藏標籤選單：", shuffled_titles, index=idx, label_visibility="collapsed", key=f"bk_sync_{st.session_state.sync_rerun_key}"
+                "隱藏標籤選單：", shuffled_titles, index=idx, label_visibility="collapsed", key="chazu_book_selector"
             )
             if selected_title != st.session_state.current_book_title:
                 st.session_state.current_book_title = selected_title
                 st.session_state.is_fully_expanded = False
                 if f"slice_start_{selected_title}" in st.session_state:
                     del st.session_state[f"slice_start_{selected_title}"]
-                st.session_state.active_tab_index = 1
                 st.rerun()
 
             # ⚙️ 防崩潰安全隨機選書邏輯
@@ -522,11 +502,9 @@ with tab1:
                     chosen = "無"
                 st.session_state.current_book_title = chosen
                 st.session_state.is_fully_expanded = False
-                st.session_state.sync_rerun_key += 1
                 if f"slice_start_{chosen}" in st.session_state:
                     del st.session_state[f"slice_start_{chosen}"]
                 st.session_state.scroll_to_top_trigger = True  
-                st.session_state.active_tab_index = 1
                 st.rerun()
 
             st.markdown("---")
@@ -542,14 +520,13 @@ with tab1:
                     st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
                     if st.button("...想繼續讀", key="sink_btn"):
                         st.session_state.is_fully_expanded = True
-                        st.session_state.active_tab_index = 1
                         st.rerun()
                 else:
                     protected_full = inject_watermark(active_content)
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 🔍 補回遺失的「📖 翻又翻」說明氣泡
+                        
                         if st.button("📖 翻又翻", help="茶壺再次發動魔法，幫你隨機換一本書！", key="rear_unboxing_btn"):
                             all_titles = [b[1] for b in all_books_list]
                             if len(all_titles) > 1:
@@ -561,11 +538,9 @@ with tab1:
                                 chosen = "無"
                             st.session_state.current_book_title = chosen
                             st.session_state.is_fully_expanded = False
-                            st.session_state.sync_rerun_key += 1
                             if f"slice_start_{chosen}" in st.session_state:
                                 del st.session_state[f"slice_start_{chosen}"]
                             st.session_state.scroll_to_top_trigger = True  
-                            st.session_state.active_tab_index = 1
                             st.rerun()
         else:
             st.subheader("無作品")
@@ -578,7 +553,6 @@ with tab1:
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
-            # 🔍 補回遺失的「✨ 留緣」說明氣泡
             submitted = st.form_submit_button("✨ 留緣", help="將你的文字烙印在茶座留緣牆上")
             
             if submitted and visitor_input:
@@ -607,8 +581,6 @@ with tab1:
                                     st.cache_data.clear()
                             except:
                                 st.session_state.touyuan_feedback = "thank you"
-                st.session_state.active_tab_index = 1
-                st.session_state.scroll_to_top_trigger = True
                 st.rerun()
 
         if "touyuan_feedback" in st.session_state:
@@ -687,7 +659,7 @@ with tab1:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，話匣子大失控！『回覆總字數必須大於 200 字，且在 400 字以內』！"
                             token_limit = 1200 
                         else:
-                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
+                            mood_instruction = "【當前心情】：你跟客人熟絡了 Clark，話匣子打開，『總字數控制在 150 個字以內』。"
                             token_limit = 600  
                     else:
                         mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺。請瘋狂敷衍，『絕對不能超過 15 個字』！"
@@ -730,7 +702,6 @@ with tab1:
                             if bk[1] == book_open_title:
                                 st.session_state.current_book_title = book_open_title
                                 st.session_state.is_fully_expanded = False
-                                st.session_state.sync_rerun_key += 1
                                 st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                                 break
                 except:
@@ -739,24 +710,24 @@ with tab1:
                     gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
-            st.session_state.active_tab_index = 1
-            st.session_state.scroll_to_top_trigger = True
             with st.chat_message("assistant"):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
+                
+            st.rerun()
 
 # ==========================================
 # 【分頁三：🪟 水吧（店長後台管理與 Word 上傳）】
 # ==========================================
 with tab3:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
-    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
+    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password", key="admin_password_input")
     
-    if admin_password == "OOO":
+    if admin_password == "Echo1102pint":
         st.success("🔓 店長身分驗證成功！")
         
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦：", ["Google Gemini", "Groq (Llama-3)"],
-            index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True
+            index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True, key="brain_selector_radio"
         )
         if chosen_brain != st.session_state.chahu_selected_brain:
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -767,12 +738,11 @@ with tab3:
             st.session_state.chahu_selected_brain = chosen_brain
             st.cache_data.clear() 
             st.toast(f"🧠 大腦核心儲存成功：{chosen_brain}！")
-            st.session_state.active_tab_index = 2
             st.rerun()
             
         st.markdown("---")
-        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=150)
-        if st.button("🧬 注入全新靈魂印記"):
+        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=150, key="brain_prompt_textarea")
+        if st.button("🧬 注入全新靈魂印記", key="update_soul_btn"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
             c.execute("UPDATE chahu_brain SET prompt=? WHERE id=1", (updated_chahu_prompt,))
@@ -780,7 +750,6 @@ with tab3:
             conn.close()
             st.cache_data.clear()
             st.success("✨ RNA 翻新成功！已同步刷新大腦記憶庫！")
-            st.session_state.active_tab_index = 2
             st.rerun()
             
         st.markdown("---")
@@ -822,17 +791,16 @@ with tab3:
                         gc.collect()
                         st.cache_data.clear()
                         st.success(f"🎉 滿血入庫！《{novel_upload_title}》已成功切分成 {page_idx} 頁儲存！")
-                        st.session_state.active_tab_index = 2
                         st.rerun()
                 except Exception as docx_err:
                     st.error(f"❌ Word 解析失敗，請檢查格式。錯誤詳情：{str(docx_err)}")
 
         st.markdown("---")
         with st.expander("➕ 上架新作品（一樓：詩和散文專用）"):
-            new_title = st.text_input("作品名稱")
-            new_content = st.text_area("作品內容", height=150)
-            is_poem_checked = st.checkbox("📜 這是詩（全篇完整排版打開）")
-            if st.button("確認上架"):
+            new_title = st.text_input("作品名稱", key="new_book_title_input")
+            new_content = st.text_area("作品內容", height=150, key="new_book_content_input")
+            is_poem_checked = st.checkbox("📜 這是詩（全篇完整排版打開）", key="new_book_is_poem_checkbox")
+            if st.button("確認上架", key="confirm_upload_book_btn"):
                 if new_title and new_content:
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()  
@@ -841,7 +809,6 @@ with tab3:
                     conn.close()
                     st.cache_data.clear()
                     st.success(f"🎉 《{new_title}》已匯入一樓書架！")
-                    st.session_state.active_tab_index = 2
                     st.rerun()
 
         st.markdown("---")
@@ -849,7 +816,7 @@ with tab3:
         
         # 1. 匯出一樓 JSON 備份
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
-        st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
+        st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json", key="download_backup_btn")
         
         # 2. 🔄 一樓備份資料回灌
         st.markdown("<br>", unsafe_allow_html=True)
@@ -870,20 +837,18 @@ with tab3:
                     st.cache_data.clear()
                     st.success("🎉 一樓館藏備份回灌成功！已重新覆蓋書架。")
                     time.sleep(1)
-                    st.session_state.active_tab_index = 2
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ 回灌失敗，請確保備份 JSON 格式正確。錯誤訊息: {e}")
 
         st.markdown("---")
-        if st.button("🗑️ 清空留緣牆"):
+        if st.button("🗑️ 清空留緣牆", key="clear_stamps_btn"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor() 
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
             st.cache_data.clear()
-            st.session_state.active_tab_index = 2
             st.rerun()
             
         st.write("📋 **一樓作品管理列表：**")
@@ -899,7 +864,6 @@ with tab3:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.session_state.active_tab_index = 2
                     st.rerun()
 
         st.write("📋 **二樓小說管理列表：**")
@@ -920,22 +884,4 @@ with tab3:
                     conn.commit()
                     conn.close()
                     st.cache_data.clear()
-                    st.session_state.active_tab_index = 2
                     st.rerun()
-
-# 🎛️ 分頁錨點鎖定：利用隱形不占空間的 HTML 腳本，將 Streamlit 分頁狀態強行固定
-# 這樣不論怎麼 rerun，使用者在哪個分頁點擊按鈕，都會完美停留在該分頁，並平滑滾動至該分頁頂端
-js_tab_lock = f"""
-<script>
-    var tabs = window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"] h2, button[role="tab"]');
-    if (tabs.length >= 3) {{
-        // 分頁對應：0 -> 二樓, 1 -> 茶座, 2 -> 水吧
-        var targetIndex = {st.session_state.active_tab_index};
-        var tabButtons = window.parent.document.querySelectorAll('button[role="tab"]');
-        if (tabButtons.length >= 3 && !tabButtons[targetIndex].getAttribute('aria-selected')) {{
-            tabButtons[targetIndex].click();
-        }}
-    }}
-</script>
-"""
-st.components.v1.html(js_tab_lock, height=0, width=0)
