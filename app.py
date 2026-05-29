@@ -451,7 +451,7 @@ with tab1:
                         else:
                             try:
                                 model_eval = genai.GenerativeModel("gemini-2.5-flash")
-                                eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。請審查以下這句訪客留言。非常寬鬆，只要不是垃圾廣告、不是髒話亂碼就判為通過(true)。\n訪客留言："{visitor_input}"\n【輸出 JSON 格式】：\n{{"passed": true或false, "reply": "判定合格回覆『就是你啊，我把你的留言貼到留緣牆了』；否則回覆『thank you』。"}}"""
+                                eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。請審查以下這句訪客留言。非常寬鬆，只要不是垃圾廣告、不是髒話亂碼就判為通過(true).\n訪客留言："{visitor_input}"\n【輸出 JSON 格式】：\n{{"passed": true或false, "reply": "判定合格回覆『就是你啊，我把你的留言貼到留緣牆了』；否則回覆『thank you』。"}}"""
                                 response = model_eval.generate_content(eval_prompt, generation_config={"response_mime_type": "application/json"})
                                 res_json = json.loads(response.text)
                                 st.session_state.touyuan_feedback = res_json["reply"]
@@ -576,7 +576,7 @@ with tab1:
                         if groq_res.status_code == 200:
                             chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
                         else:
-                            chahu_reply = random.choice(chahu_fallback_replies) # ⚙️ 修正點：打破覆讀機
+                            chahu_reply = random.choice(chahu_fallback_replies)
 
                     match = re.search(r'\[\[OPEN_BOOK:(.*?)\]\]', chahu_reply)
                     if match:
@@ -589,16 +589,13 @@ with tab1:
                                 st.toast(f"🐈 貓咪茶壺隔空移物，幫您翻開了《{book_open_title}》！")
                                 break
                 except:
-                    chahu_reply = random.choice(chahu_fallback_replies) # ⚙️ 修正點：打破覆讀機
+                    chahu_reply = random.choice(chahu_fallback_replies)
                 finally:
                     gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
             with st.chat_message("assistant"):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
-            
-            # ⚙️ 終極修復點：斬斷 3.68 GB WebSocket 頻寬殺手！
-            # 移除原先在對話結尾會盲目觸發的 st.rerun()，改採 Streamlit Chat 內建更新流，徹底終結無限循環重繪！
 
 # ==========================================
 # 【分頁二：📜 二樓（主打沉浸式小說純淨閱讀艙）】
@@ -701,7 +698,6 @@ with tab2:
 # ==========================================
 # 【分頁三：🪟 水吧（店長後台管理與 Word 上傳）】
 # ==========================================
-# ⚙️ 修正點：徹底消滅邏輯模糊的與條件句，正名回歸獨立乾淨的 with tab3
 with tab3:
     st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
     admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
@@ -797,12 +793,40 @@ with tab3:
 
         st.markdown("---")
         st.subheader("🛡️ 館藏備份與管理")
+        
+        # 1. 匯出一樓 JSON 備份
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
         st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
         
+        # 2. 🔄 完美補回【一樓備份回灌功能區塊】
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.write("🔄 **一樓備份資料回灌：**")
+        restore_file = st.file_uploader("選擇之前的備份檔案 (.json) 進行回灌", type=["json"], key="json_restore_uploader")
+        if restore_file is not None:
+            if st.button("⚡ 確認執行備份回灌", key="confirm_restore_btn"):
+                try:
+                    raw_json = json.load(restore_file)
+                    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+                    c = conn.cursor()
+                    # 徹底清空當前一樓數據（避免主鍵衝突或重疊覆蓋）
+                    c.execute("DELETE FROM books")
+                    for item in raw_json:
+                        c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item["title"], item["content"], item["is_poem"]))
+                    conn.commit()
+                    conn.close()
+                    
+                    # 安全快取機制同步更新，強制回灌作品刷新前台
+                    st.cache_data.clear()
+                    st.success("🎉 一樓館藏備份回灌成功！已重新覆蓋書架。")
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 回灌失敗，請確保備份 JSON 格式正確。錯誤訊息: {e}")
+
+        st.markdown("---")
         if st.button("🗑️ 清空留緣牆"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-            c = conn.cursor() # ⚙️ 修正點：移除 c = db_conn = ... 的多重賦值手誤
+            c = conn.cursor() 
             c.execute("DELETE FROM stamps")
             conn.commit()
             conn.close()
@@ -843,3 +867,4 @@ with tab3:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
+# 【備份回灌完美合流・全線完工】
