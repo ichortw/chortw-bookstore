@@ -117,7 +117,7 @@ def fetch_novels_menu_cached():
 
 @st.cache_data(ttl=3, show_spinner=False)
 def fetch_novel_page_cached(title, page_num):
-    """高鐵級精準撈頁快取，WebSocket 傳輸體積大幅脫脂優化，完美控頻寬"""
+    """高鐵級精準撈頁快取，WebSocket 傳輸體計大幅脫脂優化，完美控頻寬"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT content FROM novels WHERE title=? AND page_num=?", (title, page_num))
@@ -262,8 +262,25 @@ st.markdown(f"""
         white-space: pre-wrap;
     }}
     
-    .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
+    /* 🎯 貓咪區塊全面置中優化 CSS */
+    .chahu-minimal-area {{
+        text-align: center !important;
+        width: 100%;
+    }}
+    .avatar-area {{ 
+        position: relative; 
+        display: inline-block; 
+        margin: 0 auto 8px auto !important; 
+    }}
+    .chahu-photo {{ 
+        width: 360px; 
+        height: auto; 
+        object-fit: contain; 
+        border-radius: 4px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        margin: 0 auto !important;
+        display: block;
+    }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -274,8 +291,8 @@ st.markdown(f"""
         60% {{ transform: translateY(-12px) scaleX(1.6) scaleY(0.8); background: rgba(200, 190, 180, 0.3); }}
         100% {{ transform: translateY(-20px) scaleX(2.2) scaleY(0.4); opacity: 0; }}
     }}
-    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; }}
-    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; }}
+    .chahu-title {{ font-size: 16px; font-weight: bold; color: #4a341b; letter-spacing: 1px; margin-bottom: 2px; text-align: center !important; }}
+    .chahu-subtitle {{ font-size: 13px; color: #7c6a56; line-height: 1.4; margin-bottom: 5px; text-align: center !important; }}
     div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
@@ -401,7 +418,8 @@ with tab1:
                     preview_text = active_content[platform_start:platform_start+preview_length]
                     protected_preview = inject_watermark(preview_text)
                     st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
-                    if st.button("...想繼續讀", key="sink_btn"):
+                    # 💡 補回 Cursor 提示功能
+                    if st.button("...想繼續讀", key="sink_btn", help="來繼續沉淪吧…"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
                 else:
@@ -409,7 +427,8 @@ with tab1:
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", key="rear_unboxing_btn"):
+                        # 💡 補回 Cursor 提示功能
+                        if st.button("📖 翻又翻", key="rear_unboxing_btn", help="茶壺再幫你翻一篇！"):
                             all_titles = [b[1] for b in all_books_list]
                             if len(all_titles) > 1:
                                 remain_titles = [t for t in all_titles if t != st.session_state.current_book_title]
@@ -436,7 +455,8 @@ with tab1:
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
-            submitted = st.form_submit_button("✨ 留緣")
+            # 💡 補回 Cursor 提示功能
+            submitted = st.form_submit_button("✨ 留緣", help="還想？留吧！")
             
             if submitted and visitor_input:
                 if bot_trap_input:
@@ -542,7 +562,7 @@ with tab1:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，話匣子大失控！『回覆總字數必須大於 200 字，且在 400 字以內』！"
                             token_limit = 1200 
                         else:
-                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
+                            mood_instruction = "【當前心情】：力跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
                             token_limit = 600  
                     else:
                         mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺。請瘋狂敷衍，『絕對不能超過 15 個字』！"
@@ -633,6 +653,18 @@ with tab2:
 
     if st.session_state.active_novel_title:
         page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
+        
+        # 🎯 結構優化：先顯示標題與羊皮紙文字
+        st.markdown(f"#### 《{st.session_state.active_novel_title}》")
+        protected_novel_chunk = inject_watermark(page_text)
+        
+        st.markdown(f"""
+            <div class="novel-container">
+                <div class="novel-paper-text">{protected_novel_chunk}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # 🎯 翻頁控制列成功平移下移至羊皮紙底部
         col_prev, col_drop, col_next = st.columns([1, 2, 1])
         
         def check_click_spam():
@@ -676,20 +708,13 @@ with tab2:
             if st.button("下一頁 ➡️", use_container_width=True, key="novel_next_btn"):
                 if check_click_spam():
                     if st.session_state.novel_page_num < total_pages:
+                        st.session_state.novel_page_num -= 1 or st.session_state.novel_page_num + 1
                         st.session_state.novel_page_num += 1
                         st.rerun()
                     else:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
 
-        st.markdown(f"#### 《{st.session_state.active_novel_title}》")
-        protected_novel_chunk = inject_watermark(page_text)
-        
-        st.markdown(f"""
-            <div class="novel-container">
-                <div class="novel-paper-text">{protected_novel_chunk}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
+        st.markdown("<br>", unsafe_allow_html=True)
         st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
         
     else:
@@ -868,3 +893,4 @@ with tab3:
                     st.cache_data.clear()
                     st.rerun()
 # 【備份回灌完美合流・全線完工】
+}
