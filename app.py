@@ -262,12 +262,8 @@ st.markdown(f"""
         white-space: pre-wrap;
     }}
     
-    /* 🎯 貓咪區塊全面置中化樣式調整 */
-    .chahu-minimal-area {{
-        text-align: center !important;
-    }}
     .avatar-area {{ position: relative; display: inline-block; margin-bottom: 8px; }}
-    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin: 0 auto 8px auto !important; display: block; }}
+    .chahu-photo {{ width: 360px; height: auto; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }}
     .smoke-container {{ position: absolute; top: -20px; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; z-index: 10; }}
     .smoke-line {{ position: absolute; bottom: 0; width: 3px; background: rgba(210, 200, 190, 0.7); border-radius: 50%; animation: floatUp 2.5s infinite ease-in-out; filter: blur(1.5px); }}
     .smoke-1 {{ left: 8px; height: 12px; animation-delay: 0s; }}
@@ -346,8 +342,8 @@ if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-# 📦 【三大分頁架構調整順序：二樓圖書館、一樓茶座、管理員水吧】
-tab2, tab1, tab3 = st.tabs(["📜 二樓", "🍵 茶座", "🪟 水吧"])
+# 📦 【三大分頁架構正式合流：一樓茶座、二樓圖書館、管理員水吧】
+tab1, tab2, tab3 = st.tabs(["🍵 茶座", "📜 二樓", "🪟 水吧"])
 
 # ==========================================
 # 【分頁一：🍵 茶座（詩、散文與小貓聊天）】
@@ -413,7 +409,7 @@ with tab1:
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        if st.button("📖 翻又翻", help="茶壺再次發動魔法，幫你隨機換一本書！", key="rear_unboxing_btn"):
+                        if st.button("📖 翻又翻", key="rear_unboxing_btn"):
                             all_titles = [b[1] for b in all_books_list]
                             if len(all_titles) > 1:
                                 remain_titles = [t for t in all_titles if t != st.session_state.current_book_title]
@@ -440,7 +436,7 @@ with tab1:
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
-            submitted = st.form_submit_button("✨ 留緣", help="將你的文字烙印在茶座留緣牆上")
+            submitted = st.form_submit_button("✨ 留緣")
             
             if submitted and visitor_input:
                 if bot_trap_input:
@@ -637,19 +633,6 @@ with tab2:
 
     if st.session_state.active_novel_title:
         page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
-        
-        st.markdown(f"#### 《{st.session_state.active_novel_title}》")
-        protected_novel_chunk = inject_watermark(page_text)
-        
-        st.markdown(f"""
-            <div class="novel-container">
-                <div class="novel-paper-text">{protected_novel_chunk}</div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
-        
-        # ⚙️ 修正點：翻頁控制列下移至羊皮紙底部
         col_prev, col_drop, col_next = st.columns([1, 2, 1])
         
         def check_click_spam():
@@ -692,12 +675,23 @@ with tab2:
         with col_next:
             if st.button("下一頁 ➡️", use_container_width=True, key="novel_next_btn"):
                 if check_click_spam():
-                    # ⚙️ 修正點：修復並穩定二樓「下一頁」步進持久化邏輯
                     if st.session_state.novel_page_num < total_pages:
                         st.session_state.novel_page_num += 1
                         st.rerun()
                     else:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
+
+        st.markdown(f"#### 《{st.session_state.active_novel_title}》")
+        protected_novel_chunk = inject_watermark(page_text)
+        
+        st.markdown(f"""
+            <div class="novel-container">
+                <div class="novel-paper-text">{protected_novel_chunk}</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
+        
     else:
         st.info("💡 請在上方點開【長篇】、【中篇】或【短篇】選單，翻開您想閱讀的長篇巨著。")
 
@@ -874,4 +868,3 @@ with tab3:
                     st.cache_data.clear()
                     st.rerun()
 # 【備份回灌完美合流・全線完工】
-}
