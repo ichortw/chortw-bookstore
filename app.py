@@ -20,11 +20,20 @@ except ImportError:
     import docx
 
 # ==========================================
-# 🏠 雲端保險箱配置：全面指定 Render 永久硬碟路徑
+# 🏠 雲端保險箱配置：全面自適應 Zeabur 與 Render 永久硬碟路徑 (技術總監優化版)
 # ==========================================
-DB_PATH = '/data/zhuoji_books.db'
+# 優先檢查系統根目錄下的 /data (Render 專用)，如果不可寫或不存在，則自動在當前專案目錄下建立 data/
+if os.path.exists('/data') and os.access('/data', os.W_OK):
+    DB_PATH = '/data/zhuoji_books.db'
+else:
+    # Zeabur 或本地開發環境：自動在專案根目錄下建立 data 資料夾
+    LOCAL_DATA_DIR = "data"
+    if not os.path.exists(LOCAL_DATA_DIR):
+        os.makedirs(LOCAL_DATA_DIR, exist_ok=True)
+        print(f"📡 [技術總監提示]：已成功自動建立【{LOCAL_DATA_DIR}】子資料夾以存放 SQLite 資料庫！")
+    DB_PATH = os.path.join(LOCAL_DATA_DIR, 'zhuoji_books.db')
 
-# 確保資料庫目錄在特定環境下安全存在
+# 再次雙重保險確保資料庫目錄在任何特定環境下安全存在
 try:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 except:
@@ -179,14 +188,13 @@ groq_api_key = get_groq_api_key()
 # 🌐 外接免費圖床網址，全面升級為零傳輸資產，徹底守護 Render 頻寬
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
-BANNER_URL = "https://i.postimg.cc/RhbMMJcH/banner1.jpg"
+BANNER_URL = "https://i.postimg.cc/RhbMMHcH/banner1.jpg"
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
-# 注入 CSS（優化調整二樓小說艙，精簡傳輸體積）
 st.markdown(f"""
     <style>
     .block-container {{
@@ -233,7 +241,6 @@ st.markdown(f"""
     .content-text {{ font-size: 20px !important; line-height: 1.8 !important; color: #2d3748; text-align: justify; }}
     .poem-text {{ font-size: 22px !important; line-height: 2.0 !important; color: #4a5568; text-align: center; letter-spacing: 2px; white-space: pre-wrap !important; }}
     
-    /* 📜 二樓羊皮紙質感減肥輕量版 CSS */
     .novel-container {{
         background-color: #fbf7f0;
         border: 1px solid #ebdcc5;
@@ -253,7 +260,6 @@ st.markdown(f"""
         white-space: pre-wrap;
     }}
     
-    /* 🎯 貓咪區塊全面置中優化 CSS */
     .chahu-minimal-area {{
         text-align: center !important;
         width: 100%;
@@ -293,9 +299,7 @@ st.markdown(f"""
 st.markdown("<div id='bookstore_top_anchor'></div>", unsafe_allow_html=True)
 st.markdown('<div class="zhuoji-banner"></div>', unsafe_allow_html=True)
 
-# 撈出一樓核心快取資料
 CHAHU_PROMPT_FROM_DB, CURRENT_ACTIVE_BRAIN_FROM_DB, all_books_list, current_stamps = fetch_core_data_cached()
-# 撈出二樓小說快取選單
 novels_menu = fetch_novels_menu_cached()
 
 if "sync_rerun_key" not in st.session_state:
@@ -317,7 +321,6 @@ if "burst_turns" not in st.session_state:
 if "scroll_to_top_trigger" not in st.session_state:
     st.session_state.scroll_to_top_trigger = False
 
-# 🧠 二樓沉浸式專用狀態初始化
 if "active_novel_title" not in st.session_state:
     st.session_state.active_novel_title = None
 if "novel_page_num" not in st.session_state:
@@ -350,11 +353,10 @@ if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-# 📦 【三大分頁架構正式合流：一樓茶座、二樓藏書閣、管理員水吧】
 tab1, tab2, tab3 = st.tabs(["🍵茶座", "🥃二樓", "🍸水吧"])
 
 # ==========================================
-# 【分頁一：🍵 茶座（詩、散文與小貓聊天）】
+# 【分頁一：🍵 茶座】
 # ==========================================
 with tab1:
     col_book, col_chahu = st.columns([1.6, 1.0])
@@ -380,7 +382,6 @@ with tab1:
                     del st.session_state[f"slice_start_{selected_title}"]
                 st.rerun()
 
-            # ⚙️ 修正點：重構防崩潰安全隨機選書邏輯，消滅定義不明的幽靈變數隱患
             if st.button("📖 翻一翻", help="茶壺幫你隨手翻篇！", key="top_unbox_btn"):
                 all_titles = [b[1] for b in all_books_list]
                 if len(all_titles) > 1:
@@ -409,7 +410,6 @@ with tab1:
                     preview_text = active_content[platform_start:platform_start+preview_length]
                     protected_preview = inject_watermark(preview_text)
                     st.markdown(f'<div class="content-text">...... {protected_preview} ......</div>', unsafe_allow_html=True)
-                    # 💡 補回 Cursor 提示功能
                     if st.button("...想繼續讀", key="sink_btn", help="來繼續沉淪吧…"):
                         st.session_state.is_fully_expanded = True
                         st.rerun()
@@ -418,7 +418,6 @@ with tab1:
                     st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 💡 補回 Cursor 提示功能
                         if st.button("📖 翻又翻", key="rear_unboxing_btn", help="茶壺再幫你翻篇！"):
                             all_titles = [b[1] for b in all_books_list]
                             if len(all_titles) > 1:
@@ -446,7 +445,6 @@ with tab1:
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
-            # 💡 補回 Cursor 提示功能
             submitted = st.form_submit_button("🌻 留緣", help="還想？留吧！")
             
             if submitted and visitor_input:
@@ -505,7 +503,6 @@ with tab1:
         if "messages" not in st.session_state:
             st.session_state.messages = []
             
-        # 渲染對話歷史
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', msg["content"]))
@@ -517,14 +514,12 @@ with tab1:
             if len(st.session_state.messages) > 6:
                 st.session_state.messages = st.session_state.messages[-6:]
                 
-            # 立即顯示使用者剛輸入的對話，提供流暢體感
             with st.chat_message("user"):
                 st.write(user_chat)
                 
             match = None  
             current_brain = st.session_state.chahu_selected_brain
             
-            # 🧠 貓咪防覆讀隨機垃圾話池
             chahu_fallback_replies = [
                 "🐾 喵嗚... 腦袋突然開小差了，要不換本書讀讀？",
                 "🐾 喵... 我剛剛恍神在想店長的下一部巨作，你剛才說啥？",
@@ -537,28 +532,27 @@ with tab1:
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
                 time.sleep(n * 0.1)
             elif current_brain == "Google Gemini" and not has_gemini:
-                chahu_reply = "😮‍💨 喵嗚... 我連不上 Gemini 大腦..."
+                chahu_reply = "😮‍章... 我連不上 Gemini 大腦..."
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
-                chahu_reply = "😮‍💨 喵嗚... 我連不上 Groq 大腦..."
+                chahu_reply = "😮‍章... 我連不上 Groq 大腦..."
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
                     current_work_content_chunk = active_content[:400]
                     
-                    # 🎯 【核心修復點】全面調高 token_limit 緩衝值，將字數限制全權交由 Prompt 控制，阻斷任何攔腰截斷的可能。
                     if 1 <= n <= 3:
                         mood_instruction = "【當前心情】：你對客人冷淡觀察。請稍微敷衍，且回覆『絕對不能超過 20 個字』！"
-                        token_limit = 1000  # 原 300 緩衝過低 -> 升級為 1000 安全富餘量
+                        token_limit = 1000
                     elif 4 <= n <= 9:
                         if n in st.session_state.burst_turns:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，話匣子大失控！『回覆總字數必須大於 200 字，且在 400 字以內』！"
-                            token_limit = 2500  # 原 1200 -> 升級為 2500 全面容納長對話
+                            token_limit = 2500
                         else:
                             mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
-                            token_limit = 1500  # 原 600 -> 升級為 1500
+                            token_limit = 1500
                     else:
                         mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺。請瘋狂敷衍，『絕對不能超過 15 個字』！"
-                        token_limit = 1000  # 原 300 -> 升級為 1000
+                        token_limit = 1000
 
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\n\n【當前茶室環境】：讀者正閱讀作品：《{current_work_title}》。\n內文：\n{current_work_content_chunk}\n\n{mood_instruction}\n\n【店長的絕對鐵律】：嚴禁出現『唉』字！"
 
@@ -610,7 +604,7 @@ with tab1:
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
 
 # ==========================================
-# 【分頁二：🥃 二樓（主打沉浸式小說純淨閱讀艙）】
+# 【分頁二：🥃 二樓】
 # ==========================================
 with tab2:
     st.subheader("📻 二樓")
@@ -646,7 +640,6 @@ with tab2:
     if st.session_state.active_novel_title:
         page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
         
-        # 🎯 結構優化：先顯示標題與羊皮紙文字
         st.markdown(f"#### 《{st.session_state.active_novel_title}》")
         protected_novel_chunk = inject_watermark(page_text)
         
@@ -656,7 +649,6 @@ with tab2:
             </div>
         """, unsafe_allow_html=True)
         
-        # 🎯 翻頁控制列成功平移下移至羊皮紙底部
         col_prev, col_drop, col_next = st.columns([1, 2, 1])
         
         def check_click_spam():
@@ -684,7 +676,6 @@ with tab2:
             except ValueError:
                 curr_idx = 0
             
-            # 💡 核心優化：將 key 綁定目前頁碼。只要頁碼一變，選單就會自動重建並根據 index 對齊新頁面，完美避開生命週期修改衝突！
             selected_page_drop = st.selectbox(
                 "快速跳轉頁碼：",
                 page_options,
@@ -713,7 +704,7 @@ with tab2:
         st.info("📺 請點【長篇】、【中篇】或【短篇】，隨便閱讀。")
 
 # ==========================================
-# 【分頁三：🍸 水吧（店長後台管理與 Word 上傳）】
+# 【分頁三：🍸 水吧】
 # ==========================================
 with tab3:
     st.header("❄️ 來靜靜一起傾聽柔柔飄雪")
@@ -811,11 +802,9 @@ with tab3:
         st.markdown("---")
         st.subheader("🛡️ 館藏備份與管理")
         
-        # 1. 匯出一樓 JSON 備份
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
         st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
         
-        # 2. 🔄 完美補回【一樓備份回灌功能區塊】
         st.markdown("<br>", unsafe_allow_html=True)
         st.write("🔄 **一樓備份資料回灌：**")
         restore_file = st.file_uploader("選擇之前的備份檔案 (.json) 進行回灌", type=["json"], key="json_restore_uploader")
@@ -825,14 +814,12 @@ with tab3:
                     raw_json = json.load(restore_file)
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()
-                    # 徹底清空當前一樓數據（避免主鍵衝突或重疊覆蓋）
                     c.execute("DELETE FROM books")
                     for item in raw_json:
                         c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item["title"], item["content"], item["is_poem"]))
                     conn.commit()
                     conn.close()
                     
-                    # 安全快取機制同步更新，強制回灌作品刷新前台
                     st.cache_data.clear()
                     st.success("🎉 一樓館藏備份回灌成功！已重新覆蓋書架。")
                     time.sleep(1)
@@ -872,7 +859,6 @@ with tab3:
         all_db_novels = c.fetchall()
         conn.close()
         
-        # 🎯 【修復點】移除了最底下原本誤置的多餘右大括號 '}'，徹底消滅 SyntaxError 崩潰
         for n_title, n_type in all_db_novels:
             col1, col2 = st.columns([5, 1])
             with col1: st.write(f"《{n_title}》 【{n_type}】")
