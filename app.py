@@ -358,7 +358,7 @@ if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-# 📦 【三大分頁架構正式合流：重新編排樓層排列順序：二樓 ➔ 茶座 ➔ 水吧】
+# 📦 【重新編排樓層分頁權重：二樓 ➔ 茶座 ➔ 水吧】
 tab2, tab1, tab3 = st.tabs(["📜 二樓", "🍵 茶座", "🪟 水吧"])
 
 # ==========================================
@@ -407,7 +407,7 @@ with tab2:
             st.session_state.last_click_time = now
             return True
 
-        # 🪐 渲染小說主體與羊皮紙容器
+        # 🪐 渲染小說標題與羊皮紙容器
         st.markdown(f"#### 《{st.session_state.active_novel_title}》")
         protected_novel_chunk = inject_watermark(page_text)
         
@@ -419,7 +419,7 @@ with tab2:
         
         st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
         
-        # 📜 【翻頁控制列下移至羊皮紙底部】完美動線配置
+        # 📜 【翻頁控制列下移至羊皮紙底部】完美佈局
         col_prev, col_drop, col_next = st.columns([1, 2, 1])
         
         with col_prev:
@@ -818,7 +818,7 @@ with tab3:
         backup_data = [{"title": r[1], "content": r[2], "is_poem": r[3]} for r in all_books_list]
         st.download_button(label="💾 下載一樓館藏備份 (.json)", data=json.dumps(backup_data, ensure_ascii=False, indent=2), file_name="zhuoji_books_backup.json", mime="application/json")
         
-        # 2. 🔄 完美補回【一樓備份回灌功能區塊】
+        # 2. 🔄 一樓備份資料回灌
         st.markdown("<br>", unsafe_allow_html=True)
         st.write("🔄 **一樓備份資料回灌：**")
         restore_file = st.file_uploader("選擇之前的備份檔案 (.json) 進行回灌", type=["json"], key="json_restore_uploader")
@@ -828,14 +828,12 @@ with tab3:
                     raw_json = json.load(restore_file)
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()
-                    # 徹底清空當前一樓數據（避免主鍵衝突或重疊覆蓋）
                     c.execute("DELETE FROM books")
                     for item in raw_json:
                         c.execute("INSERT INTO books (title, content, is_poem) VALUES (?, ?, ?)", (item["title"], item["content"], item["is_poem"]))
                     conn.commit()
                     conn.close()
                     
-                    # 安全快取機制同步更新，強制回灌作品刷新前台
                     st.cache_data.clear()
                     st.success("🎉 一樓館藏備份回灌成功！已重新覆蓋書架。")
                     time.sleep(1)
@@ -887,4 +885,3 @@ with tab3:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
-}
