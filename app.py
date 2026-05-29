@@ -351,7 +351,7 @@ if st.session_state.scroll_to_top_trigger:
     st.session_state.scroll_to_top_trigger = False
 
 # 📦 【三大分頁架構正式合流：一樓茶座、二樓藏書閣、管理員水吧】
-tab1, tab2, tab3 = st.tabs(["茶座", "二樓", "水吧"])
+tab1, tab2, tab3 = st.tabs(["🍵茶座", "🥃二樓", "🍸水吧"])
 
 # ==========================================
 # 【分頁一：🍵 茶座（詩、散文與小貓聊天）】
@@ -613,17 +613,17 @@ with tab1:
 # 【分頁二：🥃 二樓（主打沉浸式小說純淨閱讀艙）】
 # ==========================================
 with tab2:
-    st.subheader("🥃 二樓")
-    st.caption("🛀🏻 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
+    st.subheader("📻 二樓")
+    st.caption("🛰 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
     col_l, col_m, col_s = st.columns(3)
     
     with col_l:
         long_list = ["-- 10萬字 --"] + novels_menu["長篇小說"]
-        sel_long = st.selectbox("🛥 長篇", long_list, index=0)
+        sel_long = st.selectbox("🚂 長篇", long_list, index=0)
     with col_m:
         mid_list = ["-- 5萬字 --"] + novels_menu["中篇小說"]
-        sel_mid = st.selectbox("🚂 中篇", mid_list, index=0)
+        sel_mid = st.selectbox("🚚 中篇", mid_list, index=0)
     with col_s:
         short_list = ["-- 1萬字 --"] + novels_menu["短篇小說"]
         sel_short = st.selectbox("🚗 短篇", short_list, index=0)
