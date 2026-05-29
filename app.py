@@ -1,4 +1,4 @@
-Echo1102pint# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import streamlit as st
 import sqlite3
 import random
