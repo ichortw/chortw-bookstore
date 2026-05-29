@@ -708,7 +708,6 @@ with tab2:
             if st.button("下一頁 ➡️", use_container_width=True, key="novel_next_btn"):
                 if check_click_spam():
                     if st.session_state.novel_page_num < total_pages:
-                        st.session_state.novel_page_num -= 1 or st.session_state.novel_page_num + 1
                         st.session_state.novel_page_num += 1
                         st.rerun()
                     else:
