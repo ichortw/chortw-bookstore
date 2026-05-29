@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+Echo1102pint# -*- coding: utf-8 -*-
 import streamlit as st
 import sqlite3
 import random
@@ -647,6 +647,9 @@ with tab2:
     if chosen_novel and chosen_novel != st.session_state.active_novel_title:
         st.session_state.active_novel_title = chosen_novel
         st.session_state.novel_page_num = 1
+        # 💡 同步重設選單本身的緩存 Key 值，防止殘留先前小說的舊頁碼
+        if "novel_page_jump_dropdown" in st.session_state:
+            st.session_state.novel_page_jump_dropdown = 1
         st.rerun()
 
     st.markdown("---")
@@ -681,6 +684,8 @@ with tab2:
                 if check_click_spam():
                     if st.session_state.novel_page_num > 1:
                         st.session_state.novel_page_num -= 1
+                        # 💡 同步更新下拉選單組件基底狀態，徹底斬斷跳轉幽靈
+                        st.session_state.novel_page_jump_dropdown = st.session_state.novel_page_num
                         st.rerun()
                     else:
                         st.toast("已經是第一頁囉！")
@@ -707,9 +712,13 @@ with tab2:
         with col_next:
             if st.button("下一頁 ➡️", use_container_width=True, key="novel_next_btn"):
                 if check_click_spam():
+                    # 要求（2）如當前內容不是在最後一頁，便跳轉頁面至下一頁
                     if st.session_state.novel_page_num < total_pages:
                         st.session_state.novel_page_num += 1
+                        # 💡 核心修正點：手動將下拉選單組件狀態與新頁碼強行錨定同步，消滅覆寫 Bug
+                        st.session_state.novel_page_jump_dropdown = st.session_state.novel_page_num
                         st.rerun()
+                    # 要求（1）如當前是在最後一頁，便停在當前畫面不要跳轉
                     else:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
 
@@ -891,4 +900,3 @@ with tab3:
                     conn.close()
                     st.cache_data.clear()
                     st.rerun()
-# 【備份回灌完美合流・全線完工】
