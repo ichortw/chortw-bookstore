@@ -401,7 +401,9 @@ with tab1:
             preview_length = 200
             if active_is_poem == 1:
                 protected_poem = inject_watermark(active_content)
-                st.markdown(f'<div class="poem-text">{protected_poem.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
+                # 🛡️ 移出 f-string，修復 Python 3.11 以下的反斜線語法錯誤
+                formatted_poem = protected_poem.replace("\n", "<br>").replace("\\n", "<br>")
+                st.markdown(f'<div class="poem-text">{formatted_poem}</div>', unsafe_allow_html=True)
             else:
                 if len(active_content) > preview_length and not st.session_state.is_fully_expanded:
                     platform_start = st.session_state[slice_key]
@@ -413,7 +415,9 @@ with tab1:
                         st.rerun()
                 else:
                     protected_full = inject_watermark(active_content)
-                    st.markdown(f'<div class="content-text">{protected_full.replace("\n", "<br>").replace("\\n", "<br>")}</div>', unsafe_allow_html=True)
+                    # 🛡️ 移出 f-string，修復 Python 3.11 以下的反斜線語法錯誤
+                    formatted_full = protected_full.replace("\n", "<br>").replace("\\n", "<br>")
+                    st.markdown(f'<div class="content-text">{formatted_full}</div>', unsafe_allow_html=True)
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("📖 翻又翻", key="rear_unboxing_btn", help="茶壺再幫你翻篇！"):
@@ -522,7 +526,7 @@ with tab1:
                 "🐾 喵嗚... 腦袋突然開小差了，要不換本書讀讀？",
                 "🐾 喵... 我剛剛恍神在想店長的下一部巨作，你剛才說啥？",
                 "🐾 貓毛卡在核心大腦了，等我抓個癢先！",
-                "🐾 喵嗚？外面的高熵咖啡香氣讓我有點醉了...",
+                "🐾 喵嗚？外面的高熵咖啡香氣 Laurent 讓我有點醉了...",
                 "🐾 （抖了抖耳朵）翻書魔法陣好像能量不足，店長加薪水了嗎？"
             ]
             
@@ -549,7 +553,7 @@ with tab1:
                             mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
                             token_limit = 1500
                     else:
-                        mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺。請瘋狂敷衍，『絕對不能超過 15 個字』！"
+                        mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺. 請瘋狂敷衍，『絕對不能超過 15 個字』！"
                         token_limit = 1000
 
                     dynamic_system_prompt = CHAHU_PROMPT_FROM_DB + f"\n\n【當前茶室環境】：讀者正閱讀作品：《{current_work_title}》。\n內文：\n{current_work_content_chunk}\n\n{mood_instruction}\n\n【店長的絕對鐵律】：嚴禁出現『唉』字！"
