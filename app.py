@@ -11,33 +11,31 @@ import time
 from datetime import datetime
 import google.generativeai as genai
 import base64
-
-# 🔌 自動安裝或導入 python-docx（店長不需手動去後台裝套件，程式自動處理）
-try:
-    import docx
-except ImportError:
-    os.system('pip install python-docx')
-    import docx
+import docx  # 🔌 已經安全部署，直接導入即可，防範唯讀環境權限衝突
 
 # ==========================================
 # 🏠 雲端保險箱配置：全面自適應 Zeabur 與 Render 永久硬碟路徑 (技術總監優化版)
 # ==========================================
-# 優先檢查系統根目錄下的 /data (Render 專用)，如果不可寫或不存在，則自動在當前專案目錄下建立 data/
+# 優先檢查系統根目錄下的 /data (Render/Zeabur 永久掛載點)，如果不可寫或不存在，則自動在當前專案目錄下建立 data/
 if os.path.exists('/data') and os.access('/data', os.W_OK):
     DB_PATH = '/data/zhuoji_books.db'
 else:
-    # Zeabur 或本地開發環境：自動在專案根目錄下建立 data 資料夾
+    # 本地開發環境或未掛載根目錄環境：自動在專案根目錄下建立 data 資料夾
     LOCAL_DATA_DIR = "data"
     if not os.path.exists(LOCAL_DATA_DIR):
-        os.makedirs(LOCAL_DATA_DIR, exist_ok=True)
-        print(f"📡 [技術總監提示]：已成功自動建立【{LOCAL_DATA_DIR}】子資料夾以存放 SQLite 資料庫！")
+        try:
+            os.makedirs(LOCAL_DATA_DIR, exist_ok=True)
+            print(f"📡 [技術總監提示]：已成功自動建立【{LOCAL_DATA_DIR}】子資料夾以存放 SQLite 資料庫！")
+        except Exception:
+            pass
     DB_PATH = os.path.join(LOCAL_DATA_DIR, 'zhuoji_books.db')
 
 # 再次雙重保險確保資料庫目錄在任何特定環境下安全存在
-try:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-except:
-    pass
+if not os.path.exists(os.path.dirname(DB_PATH)):
+    try:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    except Exception:
+        pass
 
 # ==========================================
 # ⚡ 火箭超速護盾：初始化資料庫 (開機只跑一次，徹底消滅冷啟動空白卡頓)
@@ -863,7 +861,7 @@ with tab3:
             col1, col2 = st.columns([5, 1])
             with col1: st.write(f"《{n_title}》 【{n_type}】")
             with col2:
-                if st.button("下架", key=f"del_novel_{n_title}"):
+                if st.button("下架整部小說", key=f"del_novel_{n_title}"):
                     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                     c = conn.cursor()
                     c.execute("DELETE FROM novels WHERE title=?", (n_title,))
