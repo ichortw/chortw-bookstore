@@ -350,8 +350,8 @@ if st.session_state.scroll_to_top_trigger:
     st.components.v1.html("<script>window.parent.document.getElementById('bookstore_top_anchor').scrollIntoView({behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.scroll_to_top_trigger = False
 
-# 📦 【三大分頁架構正式合流：一樓茶座、二樓圖書館、管理員水吧】
-tab1, tab2, tab3 = st.tabs(["🍵 茶座", "📜 二樓", "🪟 水吧"])
+# 📦 【三大分頁架構正式合流：一樓茶座、二樓藏書閣、管理員水吧】
+tab1, tab2, tab3 = st.tabs(["茶座", "二樓", "水吧"])
 
 # ==========================================
 # 【分頁一：🍵 茶座（詩、散文與小貓聊天）】
@@ -368,7 +368,7 @@ with tab1:
                 st.rerun()
                 
             idx = shuffled_titles.index(active_title) if active_title in shuffled_titles else 0
-            st.markdown(f"**📚 {st.session_state[verse_key]}**")
+            st.markdown(f"**📚🍵 {st.session_state[verse_key]}**")
             
             selected_title = st.selectbox(
                 "隱藏標籤選單：", shuffled_titles, index=idx, label_visibility="collapsed", key=f"bk_sync_{st.session_state.sync_rerun_key}"
@@ -442,12 +442,12 @@ with tab1:
             
         st.subheader("🧱 留緣牆")
         with st.form("touyuan_form", clear_on_submit=True):
-            visitor_input = st.text_input("有緣留下一句 20 字 🐈", max_chars=100)
+            visitor_input = st.text_input("有緣留下一句 20 字 🪴", max_chars=100)
             st.markdown('<div class="chahu-bot-trap">', unsafe_allow_html=True)
             bot_trap_input = st.text_input("蜜糖罐🍯", key="chahu_honeypot_trap_key", value="")
             st.markdown('</div>', unsafe_allow_html=True)
             # 💡 補回 Cursor 提示功能
-            submitted = st.form_submit_button("✨ 留緣", help="還想？留吧！")
+            submitted = st.form_submit_button("🌻 留緣", help="還想？留吧！")
             
             if submitted and visitor_input:
                 if bot_trap_input:
@@ -537,9 +537,9 @@ with tab1:
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
                 time.sleep(n * 0.1)
             elif current_brain == "Google Gemini" and not has_gemini:
-                chahu_reply = "😮‍💨 喵嗚... 我現在連不上大腦..."
+                chahu_reply = "😮‍💨 喵嗚... 我連不上 Gemini 大腦..."
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
-                chahu_reply = "😮‍💨 喵嗚... 我聞不到 Groq 大腦的味道..."
+                chahu_reply = "😮‍💨 喵嗚... 我連不上 Groq 大腦..."
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
@@ -610,23 +610,23 @@ with tab1:
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
 
 # ==========================================
-# 【分頁二：📜 二樓（主打沉浸式小說純淨閱讀艙）】
+# 【分頁二：🥃 二樓（主打沉浸式小說純淨閱讀艙）】
 # ==========================================
 with tab2:
-    st.subheader("🪐 二樓地下圖書館")
-    st.caption("✨ 避開塵囂的深度閱讀空間。這裡不設訪客輸入窗口與 AI 貓咪，回歸純粹的紙質文字體悟。")
+    st.subheader("🥃 二樓")
+    st.caption("🛀🏻 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
     col_l, col_m, col_s = st.columns(3)
     
     with col_l:
-        long_list = ["-- 請選擇長篇巨著 (10萬字+) --"] + novels_menu["長篇小說"]
-        sel_long = st.selectbox("📕 長篇小說選欄：", long_list, index=0)
+        long_list = ["-- 10萬字 --"] + novels_menu["長篇小說"]
+        sel_long = st.selectbox("🛥 長篇", long_list, index=0)
     with col_m:
-        mid_list = ["-- 請選擇中篇浮生 (5萬字±) --"] + novels_menu["中篇小說"]
-        sel_mid = st.selectbox("📙 中篇小說選欄：", mid_list, index=0)
+        mid_list = ["-- 5萬字 --"] + novels_menu["中篇小說"]
+        sel_mid = st.selectbox("🚂 中篇", mid_list, index=0)
     with col_s:
-        short_list = ["-- 請選擇短篇微光 (1萬字±) --"] + novels_menu["短篇小說"]
-        sel_short = st.selectbox("📘 短篇小說選欄：", short_list, index=0)
+        short_list = ["-- 1萬字 --"] + novels_menu["短篇小說"]
+        sel_short = st.selectbox("🚗 短篇", short_list, index=0)
 
     chosen_novel = None
     if sel_long and not sel_long.startswith("--"):
@@ -663,7 +663,7 @@ with tab2:
             now = time.time()
             elapsed = now - st.session_state.last_click_time
             if elapsed < 1.0:
-                st.error("☕ 店小二端茶中... 閱讀是一場慢旅，請喝口茶、稍等 1 秒片刻再翻頁吧。")
+                st.error("☕ 稍等，慢著，別太快，再來。")
                 return False
             st.session_state.last_click_time = now
             return True
@@ -707,17 +707,17 @@ with tab2:
                         st.toast("已讀完整部作品，感謝店長/讀者留緣！")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.caption(f"✦ 頁面底部 ✦ 本頁字數約 1,000 字 ✦ 當前正處於第 {st.session_state.novel_page_num} 頁 ✦")
+        st.caption(f"✦ 你好，這裡是第 {st.session_state.novel_page_num} 頁 ✦")
         
     else:
-        st.info("💡 請在上方點開【長篇】、【中篇】或【短篇】選單，翻開您想閱讀的長篇巨著。")
+        st.info("📺 請點【長篇】、【中篇】或【短篇】，隨便閱讀。")
 
 # ==========================================
-# 【分頁三：🪟 水吧（店長後台管理與 Word 上傳）】
+# 【分頁三：🍸 水吧（店長後台管理與 Word 上傳）】
 # ==========================================
 with tab3:
-    st.header("⚙️ 來靜靜一起傾聽柔柔飄雪")
-    admin_password = st.text_input("🔑 一心一意只要盡情注視", type="password")
+    st.header("❄️ 來靜靜一起傾聽柔柔飄雪")
+    admin_password = st.text_input("🍹 一心一意只要盡情注視", type="password")
     
     if admin_password == "2011Pintecho$":
         st.success("🔓 店長身分驗證成功！")
@@ -750,7 +750,7 @@ with tab3:
             st.rerun()
             
         st.markdown("---")
-        st.subheader("📚 二樓：匯入長/中/短篇小說 (.docx)")
+        st.subheader("🍸 二樓：匯入長/中/短篇小說 (.docx)")
         st.caption("💡 程式會自動榨乾 Word 內文，每 1000 字自動精準切片並建立資料庫分頁。")
         
         with st.form("novel_upload_form", clear_on_submit=True):
