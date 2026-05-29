@@ -428,7 +428,7 @@ with tab1:
                     if len(active_content) > preview_length:
                         st.markdown("<br>", unsafe_allow_html=True)
                         # 💡 補回 Cursor 提示功能
-                        if st.button("📖 翻又翻", key="rear_unboxing_btn", help="茶壺再幫你翻一篇！"):
+                        if st.button("📖 翻又翻", key="rear_unboxing_btn", help="茶壺再幫你翻篇！"):
                             all_titles = [b[1] for b in all_books_list]
                             if len(all_titles) > 1:
                                 remain_titles = [t for t in all_titles if t != st.session_state.current_book_title]
@@ -647,9 +647,6 @@ with tab2:
     if chosen_novel and chosen_novel != st.session_state.active_novel_title:
         st.session_state.active_novel_title = chosen_novel
         st.session_state.novel_page_num = 1
-        # 💡 同步重設選單本身的緩存 Key 值，防止殘留先前小說的舊頁碼
-        if "novel_page_jump_dropdown" in st.session_state:
-            st.session_state.novel_page_jump_dropdown = 1
         st.rerun()
 
     st.markdown("---")
@@ -684,8 +681,6 @@ with tab2:
                 if check_click_spam():
                     if st.session_state.novel_page_num > 1:
                         st.session_state.novel_page_num -= 1
-                        # 💡 同步更新下拉選單組件基底狀態，徹底斬斷跳轉幽靈
-                        st.session_state.novel_page_jump_dropdown = st.session_state.novel_page_num
                         st.rerun()
                     else:
                         st.toast("已經是第一頁囉！")
@@ -697,13 +692,14 @@ with tab2:
             except ValueError:
                 curr_idx = 0
             
+            # 💡 核心優化：將 key 綁定目前頁碼。只要頁碼一變，選單就會自動重建並根據 index 對齊新頁面，完美避開生命週期修改衝突！
             selected_page_drop = st.selectbox(
                 "快速跳轉頁碼：",
                 page_options,
                 index=curr_idx,
                 format_func=lambda x: f"第 {x} / {total_pages} 頁",
                 label_visibility="collapsed",
-                key="novel_page_jump_dropdown"
+                key=f"novel_page_drop_{st.session_state.novel_page_num}"
             )
             if selected_page_drop != st.session_state.novel_page_num:
                 st.session_state.novel_page_num = selected_page_drop
@@ -715,8 +711,6 @@ with tab2:
                     # 要求（2）如當前內容不是在最後一頁，便跳轉頁面至下一頁
                     if st.session_state.novel_page_num < total_pages:
                         st.session_state.novel_page_num += 1
-                        # 💡 核心修正點：手動將下拉選單組件狀態與新頁碼強行錨定同步，消滅覆寫 Bug
-                        st.session_state.novel_page_jump_dropdown = st.session_state.novel_page_num
                         st.rerun()
                     # 要求（1）如當前是在最後一頁，便停在當前畫面不要跳轉
                     else:
