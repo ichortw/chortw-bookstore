@@ -188,7 +188,7 @@ groq_api_key = get_groq_api_key()
 # 🌐 外接免費圖床網址，全面升級為零傳輸資產，徹底守護 Render 頻寬
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
-BANNER_URL = "https://i.postimg.cc/RhbMMHcH/banner1.jpg"
+BANNER_URL = "https://i.postimg.cc/RhbMMJcH/banner1.jpg"
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置
