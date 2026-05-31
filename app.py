@@ -368,7 +368,7 @@ with tab1:
                 st.rerun()
                 
             idx = shuffled_titles.index(active_title) if active_title in shuffled_titles else 0
-            st.markdown(f"**📚🍵 {st.session_state[verse_key]}**")
+            st.markdown(f"**🍵 {st.session_state[verse_key]}**")
             
             selected_title = st.selectbox(
                 "隱藏標籤選單：", shuffled_titles, index=idx, label_visibility="collapsed", key=f"bk_sync_{st.session_state.sync_rerun_key}"
@@ -623,20 +623,20 @@ with tab1:
 # 【分頁二：🥃 二樓】
 # ==========================================
 with tab2:
-    st.subheader("📻 二樓")
-    st.caption("🥃 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
+    st.subheader("🥃 二樓")
+    st.caption("🌦 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
     col_l, col_m, col_s = st.columns(3)
     
     with col_l:
-        long_list = ["-- 10萬字 --"] + novels_menu["長篇小說"]
-        sel_long = st.selectbox("🚂 長篇", long_list, index=0)
+        long_list = ["-- 長篇 --"] + novels_menu["長篇小說"]
+        sel_long = st.selectbox("🍷 說話如夜色平靜", long_list, index=0)
     with col_m:
-        mid_list = ["-- 5萬字 --"] + novels_menu["中篇小說"]
-        sel_mid = st.selectbox("🚚 中篇", mid_list, index=0)
+        mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
+        sel_mid = st.selectbox("🍺 誰像雪浮在手中", mid_list, index=0)
     with col_s:
-        short_list = ["-- 1萬字 --"] + novels_menu["短篇小說"]
-        sel_short = st.selectbox("🚗 短篇", short_list, index=0)
+        short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
+        sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=0)
 
     chosen_novel = None
     if sel_long and not sel_long.startswith("--"):
@@ -719,7 +719,7 @@ with tab2:
         st.caption(f"✦ 你好，這裡是第 {st.session_state.novel_page_num} 頁 ✦")
         
     else:
-        st.info("📺 請點【長篇】、【中篇】或【短篇】，隨便閱讀。")
+        st.info("📚 想獨自閱讀 - 長篇、中篇、短篇，請隨便")
 
 # ==========================================
 # 【分頁三：🍸 水吧】
