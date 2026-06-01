@@ -323,23 +323,23 @@ st.markdown(f"""
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
     
-    /* 📈 🛠️ 儀表板特製霓虹微光卡片 CSS */
+    /* 📈 🛠️ 儀表板特製：駭客矩陣炫彩耀眼螢光綠卡片 CSS */
     .metric-card-box {{
-        background: linear-gradient(135deg, #fdfbf7 0%, #f5ece1 100%);
-        border: 1px solid #e1d3c1;
+        background: #000000 !important;
+        border: 2px solid #00FF00 !important;
         border-radius: 6px;
         padding: 15px;
-        box-shadow: 0 2px 8px rgba(92,75,55,0.05);
+        box-shadow: 0 0 12px rgba(0, 255, 0, 0.3);
         transition: all 0.3s ease;
     }}
     .metric-card-box:hover {{
         transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(92,75,55,0.12);
-        border-color: #c9b499;
+        box-shadow: 0 0 25px rgba(0, 255, 0, 0.7);
+        border-color: #39FF14 !important;
     }}
-    .metric-card-title {{ font-size: 14px; font-weight: bold; color: #7c6a56; margin-bottom: 5px; letter-spacing: 0.5px; }}
-    .metric-card-value {{ font-size: 24px; font-weight: 800; color: #3a2e2b; font-family: monospace; }}
-    .metric-card-sub {{ font-size: 11px; color: #9c8a76; margin-top: 4px; }}
+    .metric-card-title {{ font-size: 14px; font-weight: bold; color: #00FF00 !important; margin-bottom: 5px; letter-spacing: 1px; text-shadow: 0 0 2px rgba(0,255,0,0.5); }}
+    .metric-card-value {{ font-size: 24px; font-weight: 800; color: #39FF14 !important; font-family: monospace; text-shadow: 0 0 8px rgba(0,255,0,0.8); }}
+    .metric-card-sub {{ font-size: 11px; color: #88FF88 !important; margin-top: 4px; opacity: 0.85; font-family: monospace; }}
     </style>
 """, unsafe_allow_html=True)
 
