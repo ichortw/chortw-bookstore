@@ -691,6 +691,15 @@ with tab2:
     st.subheader("🥃 二樓")
     st.caption("🌦 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
+    # 🐾 🛠️ 核心核心改造：二樓到訪一遊隨機獻文（茶壺預先從短篇小說抓1000字切片獻上）
+    if st.session_state.active_novel_title is None:
+        if novels_menu["短篇小說"]:
+            # 隨機挑選一本短篇小說，並將頁碼歸到第 1 頁（每頁就是 1000 字切片）
+            random_short_story = random.choice(novels_menu["短篇小說"])
+            st.session_state.active_novel_title = random_short_story
+            st.session_state.novel_page_num = 1
+            st.toast(f"🐈🐾 茶壺端上熱茶，並為您隨機翻開短篇小說《{random_short_story}》一遊！")
+
     col_l, col_m, col_s = st.columns(3)
     
     with col_l:
@@ -700,8 +709,13 @@ with tab2:
         mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
         sel_mid = st.selectbox("🍺 誰像雪浮在手中", mid_list, index=0)
     with col_s:
+        # 如果當前被茶壺隨機選中了短篇，我們動態更新它的選單預設選中狀態
         short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
-        sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=0)
+        try:
+            default_short_idx = short_list.index(st.session_state.active_novel_title) if st.session_state.active_novel_title in novels_menu["短篇小說"] else 0
+        except ValueError:
+            default_short_idx = 0
+        sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=default_short_idx)
 
     chosen_novel = None
     if sel_long and not sel_long.startswith("--"):
@@ -782,7 +796,7 @@ with tab2:
         st.caption(f"✦ 你好，這裡是第 {st.session_state.novel_page_num} 頁 ✦")
         
     else:
-        st.info("📚 想獨自閱讀 - 長篇、中篇、短篇，請隨便")
+        st.info("📚 短篇小說架上目前空空如也，正等待店長在後台打破秩序、注入全新章節。")
 
 # ==========================================
 # 【分頁三：🍸 水吧】
@@ -800,7 +814,7 @@ with tab3:
         st.markdown("### 📊 桌記 Cafe 核心維生儀表板")
         st.caption("⚡ 實時追蹤雲端算力與大腦代幣消耗，精準掌控高熵邊界")
         
-        # 🔍 A. 用作業系統探針即時抓取記憶體 (加上安全降級護盾，避免未上傳套件時崩潰)
+        # 🔍 A. 用作業系統探針即時抓取記憶體
         try:
             process = psutil.Process(os.getpid())
             mem_bytes = process.memory_info().rss
