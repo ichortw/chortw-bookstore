@@ -1,0 +1,3 @@
+static/banner1.jpg
+static/chahu2.gif
+static/chahu-sleep.gif
