@@ -3,3 +3,4 @@ google-generativeai
 requests
 pypdf
 python-docx
+psutil==5.9.8
