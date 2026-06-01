@@ -339,23 +339,23 @@ st.markdown(f"""
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
     
-    /* 📈 🛠️ 儀表板特製霓虹微光卡片 CSS */
+    /* 📈 🛠️ 儀表板特製：駭客矩陣炫彩耀眼螢光綠卡片 CSS */
     .metric-card-box {{
-        background: linear-gradient(135deg, #fdfbf7 0%, #f5ece1 100%);
-        border: 1px solid #e1d3c1;
+        background: #000000 !important;
+        border: 2px solid #00FF00 !important;
         border-radius: 6px;
         padding: 15px;
-        box-shadow: 0 2px 8px rgba(92,75,55,0.05);
+        box-shadow: 0 0 12px rgba(0, 255, 0, 0.3);
         transition: all 0.3s ease;
     }}
     .metric-card-box:hover {{
         transform: translateY(-3px);
-        box-shadow: 0 5px 15px rgba(92,75,55,0.12);
-        border-color: #c9b499;
+        box-shadow: 0 0 25px rgba(0, 255, 0, 0.7);
+        border-color: #39FF14 !important;
     }}
-    .metric-card-title {{ font-size: 14px; font-weight: bold; color: #7c6a56; margin-bottom: 5px; letter-spacing: 0.5px; }}
-    .metric-card-value {{ font-size: 24px; font-weight: 800; color: #3a2e2b; font-family: monospace; }}
-    .metric-card-sub {{ font-size: 11px; color: #9c8a76; margin-top: 4px; }}
+    .metric-card-title {{ font-size: 14px; font-weight: bold; color: #00FF00 !important; margin-bottom: 5px; letter-spacing: 1px; text-shadow: 0 0 2px rgba(0,255,0,0.5); }}
+    .metric-card-value {{ font-size: 24px; font-weight: 800; color: #39FF14 !important; font-family: monospace; text-shadow: 0 0 8px rgba(0,255,0,0.8); }}
+    .metric-card-sub {{ font-size: 11px; color: #88FF88 !important; margin-top: 4px; opacity: 0.85; font-family: monospace; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -731,7 +731,7 @@ with tab2:
     current_title = st.session_state.active_novel_title
     
     idx_long = long_list.index(current_title) if (current_type == "長篇小說" and current_title in long_list) else 0
-    idx_mid = mid_list.index(current_title) if (current_type == "中篇小說" and current_title in mid_list) else 0
+    idx_mid = mid_list.index(current_title) if (current_type == "開篇小說" and current_title in mid_list) else 0
     idx_short = short_list.index(current_title) if (current_type == "短篇小說" and current_title in short_list) else 0
 
     with col_l:
@@ -841,7 +841,7 @@ with tab3:
         st.success("🔓 店長身分驗證成功！")
         
         # ==========================================
-        # 📈 🛠️ 核心豪裝工程：［柴米油鹽水電煤］維生儀表板數據艙
+        # 📈 🛠️ 核心豪裝工程：［柴米油鹽水電煤］維生儀表板數據艙 (黑綠色矩陣版)
         # ==========================================
         st.markdown("### 📊 桌記 Cafe 核心維生儀表板")
         st.caption("⚡ 實時追蹤雲端算力與大腦代幣消耗，精準掌控高熵邊界")
@@ -870,10 +870,10 @@ with tab3:
         with m_col1:
             if mem_mb > 0:
                 mem_display = f"{mem_mb:.2f} MB"
-                sub_display = "豪宅上限: 2048.00 MB (極度安全)"
+                sub_display = "豪宅上限: 2048.00 MB"
             else:
                 mem_display = "探針啟動中..."
-                sub_display = "請確認已將 psutil 寫入 requirements.txt"
+                sub_display = "requirements.txt 偵測中"
                 
             st.markdown(f"""
                 <div class="metric-card-box">
@@ -887,7 +887,7 @@ with tab3:
                 <div class="metric-card-box">
                     <div class="metric-card-title">🗄️ 永久硬碟體積 (SQLite)</div>
                     <div class="metric-card-value">{db_size_mb:.3f} MB</div>
-                    <div class="metric-card-sub">永久儲存路徑: /data/</div>
+                    <div class="metric-card-sub">位置: /data/永久層</div>
                 </div>
             """, unsafe_allow_html=True)
         with m_col3:
@@ -895,7 +895,7 @@ with tab3:
                 <div class="metric-card-box">
                     <div class="metric-card-title">⚙️ 處理器核心 (CPU)</div>
                     <div class="metric-card-value">2 Cores</div>
-                    <div class="metric-card-sub">高鐵級捷徑索引已全面部署</div>
+                    <div class="metric-card-sub">高鐵捷徑索引運作中</div>
                 </div>
             """, unsafe_allow_html=True)
             
@@ -907,19 +907,19 @@ with tab3:
         with a_col1:
             g_bill = ai_billing["Google Gemini"]
             st.markdown(f"""
-                <div class="metric-card-box" style="border-left: 4px solid #4285F4;">
+                <div class="metric-card-box" style="border-left: 5px solid #00FF00 !important;">
                     <div class="metric-card-title">🔵 Google Gemini (2.5 Flash)</div>
                     <div class="metric-card-value">${g_bill['cost']:.4f} USD</div>
-                    <div class="metric-card-sub">總代幣: 📥 {g_bill['p']} / 📤 {g_bill['c']} Tokens</div>
+                    <div class="metric-card-sub">📥 P-Tokens: {g_bill['p']} | 📤 C-Tokens: {g_bill['c']}</div>
                 </div>
             """, unsafe_allow_html=True)
         with a_col2:
             gr_bill = ai_billing["Groq (Llama-3)"]
             st.markdown(f"""
-                <div class="metric-card-box" style="border-left: 4px solid #F55036;">
+                <div class="metric-card-box" style="border-left: 5px solid #39FF14 !important;">
                     <div class="metric-card-title">🟠 Groq (Llama-3.3 70B)</div>
                     <div class="metric-card-value">${gr_bill['cost']:.4f} USD</div>
-                    <div class="metric-card-sub">總代幣: 📥 {gr_bill['p']} / 📤 {gr_bill['c']} Tokens</div>
+                    <div class="metric-card-sub">📥 P-Tokens: {gr_bill['p']} | 📤 C-Tokens: {gr_bill['c']}</div>
                 </div>
             """, unsafe_allow_html=True)
             
