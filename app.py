@@ -90,8 +90,6 @@ _ = init_db_once()
 # ==========================================
 def log_api_cost(brain_name, p_tokens, c_tokens):
     """根據 Google 與 Groq 官方最新費率計算微量美金支出，並寫入資料庫"""
-    # Gemini 2.5 Flash 費率概念: 輸入 $0.075 / 百萬 tokens, 輸出 $0.30 / 百萬 tokens
-    # Llama 3.3 70B 費率概念: 輸入 $0.59 / 百萬 tokens, 輸出 $0.79 / 百萬 tokens
     if "Gemini" in brain_name:
         cost = (p_tokens * (0.075 / 1000000)) + (c_tokens * (0.30 / 1000000))
     else:
@@ -517,7 +515,6 @@ with tab1:
                                     generation_config={"response_mime_type": "application/json"},
                                     request_options={"timeout": 15.0}
                                 )
-                                # 📊 🛠️ 計費追蹤：留緣牆審查（Gemini）
                                 try:
                                     p_tk = response.usage_metadata.prompt_token_count
                                     c_tk = response.usage_metadata.candidates_token_count
@@ -634,7 +631,6 @@ with tab1:
                         except:
                             chahu_reply = response.candidates[0].content.parts[0].text if response.candidates else random.choice(chahu_fallback_replies)
                         
-                        # 📊 🛠️ 計費追蹤：茶室對話（Gemini）
                         try:
                             p_tk = response.usage_metadata.prompt_token_count
                             c_tk = response.usage_metadata.candidates_token_count
@@ -657,7 +653,6 @@ with tab1:
                             res_body = groq_res.json()
                             chahu_reply = res_body["choices"][0]["message"]["content"]
                             
-                            # 📊 🛠️ 計費追蹤：茶室對話（Groq）
                             try:
                                 p_tk = res_body["usage"]["prompt_tokens"]
                                 c_tk = res_body["usage"]["completion_tokens"]
@@ -805,10 +800,13 @@ with tab3:
         st.markdown("### 📊 桌記 Cafe 核心維生儀表板")
         st.caption("⚡ 實時追蹤雲端算力與大腦代幣消耗，精準掌控高熵邊界")
         
-        # 🔍 A. 用作業系統探針即時抓取記憶體
-        process = psutil.Process(os.getpid())
-        mem_bytes = process.memory_info().rss
-        mem_mb = mem_bytes / (1024 * 1024)
+        # 🔍 A. 用作業系統探針即時抓取記憶體 (加上安全降級護盾，避免未上傳套件時崩潰)
+        try:
+            process = psutil.Process(os.getpid())
+            mem_bytes = process.memory_info().rss
+            mem_mb = mem_bytes / (1024 * 1024)
+        except Exception:
+            mem_mb = 0.0
         
         # 🔍 B. 撈取大腦代幣流水對帳單
         ai_billing = get_accumulated_api_billing()
@@ -824,11 +822,18 @@ with tab3:
         st.markdown("#### 🔋 Zeabur 主機物理防線")
         m_col1, m_col2, m_col3 = st.columns(3)
         with m_col1:
+            if mem_mb > 0:
+                mem_display = f"{mem_mb:.2f} MB"
+                sub_display = "豪宅上限: 2048.00 MB (極度安全)"
+            else:
+                mem_display = "探針啟動中..."
+                sub_display = "請確認已將 psutil 寫入 requirements.txt"
+                
             st.markdown(f"""
                 <div class="metric-card-box">
                     <div class="metric-card-title">💾 記憶體使用量 (RAM)</div>
-                    <div class="metric-card-value">{mem_mb:.2f} MB</div>
-                    <div class="metric-card-sub">豪宅上限: 2048.00 MB (極度安全)</div>
+                    <div class="metric-card-value">{mem_display}</div>
+                    <div class="metric-card-sub">{sub_display}</div>
                 </div>
             """, unsafe_allow_html=True)
         with m_col2:
@@ -883,7 +888,6 @@ with tab3:
         
         st.markdown("---")
         
-        # （以下維持店長原本完美的後台管理功能...）
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦：", ["Google Gemini", "Groq (Llama-3)"],
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True
@@ -900,7 +904,7 @@ with tab3:
             st.rerun()
             
         st.markdown("---")
-        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROPrompt_FROM_DB, height=150)
+        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=150)
         if st.button("🧬 注入全新靈魂印記"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
