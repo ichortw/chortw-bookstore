@@ -216,24 +216,31 @@ has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
 # ==========================================
-# 🖼️ 🔌 圖像回歸模組：從 GitHub 本地代碼庫讀取內連 Base64 數據
+# 🖼️ ⚡【極速光速加載快取核心】
 # ==========================================
-def get_local_image_base64(relative_path, mime_type="image/png"):
-    """安全讀取專案中 static 資料夾下的本地圖片，失敗時自動安全降級為微量透明點"""
-    if os.path.exists(relative_path):
-        try:
-            with open(relative_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode()
-                return f"data:{mime_type};base64,{encoded_string}"
-        except:
-            pass
-    # 🍂 防火牆安全降級底色：萬一店長忘記上傳 GitHub 圖檔，回傳 1x1 透明像素避免崩潰
-    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+@st.cache_data(show_spinner=False)
+def load_all_images_to_memory():
+    """把大圖轉換後的 Base64 終身釘在記憶體快取中，讓重新整理網頁時達到 0 秒讀取速度！"""
+    def get_base64(relative_path, mime_type):
+        if os.path.exists(relative_path):
+            try:
+                with open(relative_path, "rb") as f:
+                    return f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+            except:
+                pass
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+    
+    return {
+        "chahu": get_base64("static/chahu2.gif", "image/gif"),
+        "sleep": get_base64("static/chahu-sleep.gif", "image/gif"),
+        "banner": get_base64("static/banner1.jpg", "image/jpeg")
+    }
 
-# 實時加載 3 張 GitHub 本地管線內連圖
-CHAHU_BASE64 = get_local_image_base64("static/chahu2.gif", "image/gif")
-CHAHU_SLEEP_BASE64 = get_local_image_base64("static/chahu-sleep.gif", "image/gif")
-BANNER_BASE64 = get_local_image_base64("static/banner1.jpg", "image/jpeg")
+# 從快取大金庫直接秒拿圖片數據
+IMG_CACHE = load_all_images_to_memory()
+CHAHU_BASE64 = IMG_CACHE["chahu"]
+CHAHU_SLEEP_BASE64 = IMG_CACHE["sleep"]
+BANNER_BASE64 = IMG_CACHE["banner"]
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置與核心 CSS 注入
@@ -567,7 +574,7 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
-        # 🎨 圖像回歸：完全內連 GitHub 的本地 Base64 數據源
+        # 🎨 圖像快取回歸：完全從記憶體快取中讀取 Base64，絕不累壞硬碟
         if "chat_turns" in st.session_state and st.session_state.chat_turns >= 20:
             avatar_html = f'<img src="{CHAHU_SLEEP_BASE64}" class="chahu-photo">'
             chahu_status_title = "「茶壺」已經睡著... 😴"
@@ -704,13 +711,12 @@ with tab1:
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
 
 # ==========================================
-# 【分頁二：🥃 二樓】（店長精雕細琢完美選單管理版）
+# 【分頁二：🥃 二樓】
 # ==========================================
 with tab2:
     st.subheader("🥃 二樓")
     st.caption("🌦 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
-    # 🐾 核心初始化：到訪一遊隨機獻文
     if st.session_state.active_novel_title is None:
         if novels_menu["短篇小說"]:
             random_short_story = random.choice(novels_menu["短篇小說"])
@@ -721,17 +727,15 @@ with tab2:
 
     col_l, col_m, col_s = st.columns(3)
     
-    # 建立乾淨無瑕的選單清單
     long_list = ["-- 長篇 --"] + novels_menu["長篇小說"]
     mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
     short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
     
-    # 計算各自選單應該預設回反灰歸零(0)還是自動定位選中
     current_type = st.session_state.active_novel_type
     current_title = st.session_state.active_novel_title
     
     idx_long = long_list.index(current_title) if (current_type == "長篇小說" and current_title in long_list) else 0
-    idx_mid = mid_list.index(current_title) if (current_type == "開篇小說" and current_title in mid_list) else 0
+    idx_mid = mid_list.index(current_title) if (current_type == "中篇小說" and current_title in mid_list) else 0
     idx_short = short_list.index(current_title) if (current_type == "短篇小說" and current_title in short_list) else 0
 
     with col_l:
@@ -741,7 +745,6 @@ with tab2:
     with col_s:
         sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=idx_short, key="sel_short_trigger")
 
-    # ⚖️ 單一源頭單步切換裁判邏輯
     chosen_novel = None
     chosen_type = None
     
@@ -755,7 +758,6 @@ with tab2:
         chosen_novel = sel_short
         chosen_type = "短篇小說"
 
-    # 有新選擇時立即重設頁碼與狀態並更新
     if chosen_novel:
         st.session_state.active_novel_title = chosen_novel
         st.session_state.active_novel_type = chosen_type
@@ -840,13 +842,9 @@ with tab3:
     if admin_password == "2011Pintecho$":
         st.success("🔓 店長身分驗證成功！")
         
-        # ==========================================
-        # 📈 🛠️ 核心豪裝工程：［柴米油鹽水電煤］維生儀表板數據艙 (黑綠色矩陣版)
-        # ==========================================
         st.markdown("### 📊 桌記 Cafe 核心維生儀表板")
         st.caption("⚡ 實時追蹤雲端算力與大腦代幣消耗，精準掌控高熵邊界")
         
-        # 🔍 A. 用作業系統探針即時抓取記憶體
         try:
             process = psutil.Process(os.getpid())
             mem_bytes = process.memory_info().rss
@@ -854,17 +852,14 @@ with tab3:
         except Exception:
             mem_mb = 0.0
         
-        # 🔍 B. 撈取大腦代幣流水對帳單
         ai_billing = get_accumulated_api_billing()
         
-        # 🔍 C. 計算 SQLite 資料庫物理體積
         try:
             db_size_bytes = os.path.getsize(DB_PATH)
             db_size_mb = db_size_bytes / (1024 * 1024)
         except:
             db_size_mb = 0.0
             
-        # 🎨 第一排：Zeabur 實時核心物理硬體指標
         st.markdown("#### 🔋 Zeabur 主機物理防線")
         m_col1, m_col2, m_col3 = st.columns(3)
         with m_col1:
@@ -901,7 +896,6 @@ with tab3:
             
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # 🎨 第二排：Gemini 與 Groq 雙大腦代幣總對帳單
         st.markdown("#### 🧠 聯邦 AI 大腦代幣流水帳")
         a_col1, a_col2 = st.columns(2)
         with a_col1:
@@ -923,11 +917,10 @@ with tab3:
                 </div>
             """, unsafe_allow_html=True)
             
-        # 🎨 第三排：實時直達官方 Billing 傳送門 (風控核心)
         st.markdown("<br>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.link_button("🌐 一鍵跳轉：Zeabur 官方實時帳單後台", "https://dash.zeabur.com", use_container_width=True, help="直連官方查看最權威的主機月租水電表")
+            st.link_button("🌐 一鍵跳轉：Zeabur 官方實時帳單後台", "https://dash.zeabur.com", use_container_width=True)
         with c2:
             if st.button("🔄 刷新儀表板數據", use_container_width=True):
                 st.rerun()
