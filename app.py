@@ -833,7 +833,7 @@ with tab3:
     
     access_password = st.text_input("請輸入店長特許金鑰鑰匙：", type="password", key="manager_pwd_v2")
     
-    if access_password == st.secrets.get("MANAGER_PASSWORD", "2011Pintecho$"):
+    if access_password == st.secrets.get("MANAGER_PASSWORD", "zhuoji666"):
         st.success("🔓 驗證通過！店長請進，開始掌控高熵世界的內部秩序。")
         st.markdown("---")
         
