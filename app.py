@@ -8,6 +8,7 @@ import os
 import gc
 import requests
 import time
+import psutil  # 🔌 引入作業系統核心探針，用於極限追蹤 Zeabur 實際 Memory 消耗
 from datetime import datetime
 import google.generativeai as genai
 import base64
@@ -16,11 +17,9 @@ import docx  # 🔌 已經安全部署，直接導入即可，防範唯讀環境
 # ==========================================
 # 🏠 雲端保險箱配置：全面自適應 Zeabur 與 Render 永久硬碟路徑 (技術總監優化版)
 # ==========================================
-# 優先檢查系統根目錄下的 /data (Render/Zeabur 永久掛載點)，如果不可寫或不存在，則自動在當前專案目錄下建立 data/
 if os.path.exists('/data') and os.access('/data', os.W_OK):
     DB_PATH = '/data/zhuoji_books.db'
 else:
-    # 本地開發環境或未掛載根目錄環境：自動在專案根目錄下建立 data 資料夾
     LOCAL_DATA_DIR = "data"
     if not os.path.exists(LOCAL_DATA_DIR):
         try:
@@ -30,7 +29,6 @@ else:
             pass
     DB_PATH = os.path.join(LOCAL_DATA_DIR, 'zhuoji_books.db')
 
-# 再次雙重保險確保資料庫目錄在任何特定環境下安全存在
 if not os.path.exists(os.path.dirname(DB_PATH)):
     try:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -38,29 +36,28 @@ if not os.path.exists(os.path.dirname(DB_PATH)):
         pass
 
 # ==========================================
-# ⚡ 火箭超速護盾：初始化資料庫 (開機只跑一次，徹底消滅冷啟動空白卡頓)
+# ⚡ 火箭超速護盾與計費帳本初始化
 # ==========================================
 @st.cache_resource
 def init_db_once():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
-    # 一樓：詩與散文表
     c.execute('''CREATE TABLE IF NOT EXISTS books 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, is_poem INTEGER DEFAULT 0)''')
-    # 二樓：小說專屬結構表（加入頁碼與字數統計，並建立高鐵級捷徑索引確保不反白）
     c.execute('''CREATE TABLE IF NOT EXISTS novels 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, page_num INTEGER, content TEXT)''')
     c.execute('''CREATE INDEX IF NOT EXISTS idx_novels_lookup ON novels (title, page_num)''')
-    
     c.execute('''CREATE TABLE IF NOT EXISTS stamps 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, created_at TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS memo 
                  (id INTEGER PRIMARY KEY, content TEXT)''')
     c.execute("INSERT OR IGNORE INTO memo (id, content) VALUES (1, '')")
-    
-    # 🧠 大腦資料表
     c.execute('''CREATE TABLE IF NOT EXISTS chahu_brain 
                  (id INTEGER PRIMARY KEY, prompt TEXT, active_brain TEXT DEFAULT 'Google Gemini')''')
+    
+    # 📊 🛠️ 核心豪裝：加建 AI 聯邦代幣對帳流水本 (記錄每一筆呼叫的代價)
+    c.execute('''CREATE TABLE IF NOT EXISTS api_billing_v2 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, brain_name TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, est_cost REAL, timestamp TEXT)''')
     
     default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專注、帶著300%的好奇看著來訪客人。
 你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵咖啡店的唯一伙記小貓。
@@ -89,7 +86,46 @@ def init_db_once():
 _ = init_db_once()
 
 # ==========================================
-# ⚡ 記憶體護衛與快取魔法：一樓與二樓資料讀取快取 (消滅重複 I/O 延遲，速度翻倍)
+# 📊 🛠️ 伙記私房對帳演算法：記錄代幣消耗
+# ==========================================
+def log_api_cost(brain_name, p_tokens, c_tokens):
+    """根據 Google 與 Groq 官方最新費率計算微量美金支出，並寫入資料庫"""
+    # Gemini 2.5 Flash 費率概念: 輸入 $0.075 / 百萬 tokens, 輸出 $0.30 / 百萬 tokens
+    # Llama 3.3 70B 費率概念: 輸入 $0.59 / 百萬 tokens, 輸出 $0.79 / 百萬 tokens
+    if "Gemini" in brain_name:
+        cost = (p_tokens * (0.075 / 1000000)) + (c_tokens * (0.30 / 1000000))
+    else:
+        cost = (p_tokens * (0.59 / 1000000)) + (c_tokens * (0.79 / 1000000))
+        
+    try:
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        c = conn.cursor()
+        c.execute("INSERT INTO api_billing_v2 (brain_name, prompt_tokens, completion_tokens, est_cost, timestamp) VALUES (?, ?, ?, ?, ?)",
+                  (brain_name, p_tokens, c_tokens, cost, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        conn.commit()
+        conn.close()
+    except:
+        pass
+
+def get_accumulated_api_billing():
+    """累計撈取大腦帳本總額"""
+    try:
+        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        c = conn.cursor()
+        c.execute("SELECT brain_name, SUM(prompt_tokens), SUM(completion_tokens), SUM(est_cost) FROM api_billing_v2 GROUP BY brain_name")
+        rows = c.fetchall()
+        conn.close()
+        
+        billing_summary = {"Google Gemini": {"p": 0, "c": 0, "cost": 0.0}, "Groq (Llama-3)": {"p": 0, "c": 0, "cost": 0.0}}
+        for b_name, p_sum, c_sum, cost_sum in rows:
+            if b_name in billing_summary:
+                billing_summary[b_name] = {"p": p_sum or 0, "c": c_sum or 0, "cost": cost_sum or 0.0}
+        return billing_summary
+    except:
+        return {"Google Gemini": {"p": 0, "c": 0, "cost": 0.0}, "Groq (Llama-3)": {"p": 0, "c": 0, "cost": 0.0}}
+
+# ==========================================
+# ⚡ 記憶體護衛與快取魔法
 # ==========================================
 @st.cache_data(ttl=3, show_spinner=False)
 def fetch_core_data_cached():
@@ -109,7 +145,6 @@ def fetch_core_data_cached():
 
 @st.cache_data(ttl=3, show_spinner=False)
 def fetch_novels_menu_cached():
-    """極速撈取二樓小說分類選單，一閃即出"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT DISTINCT title, type FROM novels ORDER BY id ASC")
@@ -124,7 +159,6 @@ def fetch_novels_menu_cached():
 
 @st.cache_data(ttl=3, show_spinner=False)
 def fetch_novel_page_cached(title, page_num):
-    """高鐵級精準撈頁快取，WebSocket 傳輸體計大幅脫脂優化，完美控頻寬"""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
     c.execute("SELECT content FROM novels WHERE title=? AND page_num=?", (title, page_num))
@@ -138,7 +172,7 @@ def fetch_novel_page_cached(title, page_num):
     return page_content, max_p
 
 # ==========================================
-# 🛡️ IP 版權護衛演算法：零寬度隱形浮水印 (Zero-Width Watermark)
+# 🛡️ IP 版權護衛演算法
 # ==========================================
 def inject_watermark(text):
     if not text:
@@ -183,13 +217,12 @@ def get_groq_api_key():
 has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
-# 🌐 外接免費圖床網址，全面升級為零傳輸資產，徹底守護 Render/Zeabur 頻寬
 CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
 CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
 BANNER_URL = "https://i.postimg.cc/RhbMMJcH/banner1.jpg"
 
 # ==========================================
-# 🔒 全局 📄 網頁佈局配置
+# 🔒 全局 📄 網頁佈局配置與核心 CSS 注入
 # ==========================================
 st.set_page_config(page_title="桌記書店", layout="wide")
 
@@ -291,6 +324,24 @@ st.markdown(f"""
     div.stButton > button[key^="sink_btn"] {{ background-color: #f4ebe1 !important; color: #5c4b37 !important; border: 1px solid #dacbb5 !important; padding: 2px 10px !important; font-weight: bold !important; border-radius: 4px !important; }}
     .touyuan-river {{ background-color: #fdfbf7; border-left: 3px solid #dacbb5; padding: 14px; border-radius: 4px; font-family: serif; line-height: 1.8; color: #3a2e2b; font-size: 16px; letter-spacing: 1px; text-align: justify; }}
     .river-fragment {{ display: inline; }}
+    
+    /* 📈 🛠️ 儀表板特製霓虹微光卡片 CSS */
+    .metric-card-box {{
+        background: linear-gradient(135deg, #fdfbf7 0%, #f5ece1 100%);
+        border: 1px solid #e1d3c1;
+        border-radius: 6px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(92,75,55,0.05);
+        transition: all 0.3s ease;
+    }}
+    .metric-card-box:hover {{
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(92,75,55,0.12);
+        border-color: #c9b499;
+    }}
+    .metric-card-title {{ font-size: 14px; font-weight: bold; color: #7c6a56; margin-bottom: 5px; letter-spacing: 0.5px; }}
+    .metric-card-value {{ font-size: 24px; font-weight: 800; color: #3a2e2b; font-family: monospace; }}
+    .metric-card-sub {{ font-size: 11px; color: #9c8a76; margin-top: 4px; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -461,12 +512,19 @@ with tab1:
                             try:
                                 model_eval = genai.GenerativeModel("gemini-2.5-flash")
                                 eval_prompt = f"""你是掌管高熵咖啡店的美短小貓伙記「茶壺」。請審查以下這句訪客留言。非常寬鬆，只要不是垃圾廣告、不是髒話亂碼就判為通過(true).\n訪客留言："{visitor_input}"\n【輸出 JSON 格式】：\n{{"passed": true或false, "reply": "判定合格回覆『就是你啊，我把你的留言貼到留緣牆了』；否則回覆『thank you』。"}}"""
-                                # 💡 水吧留緣評估同步加入 15 秒安全超時機制
                                 response = model_eval.generate_content(
                                     eval_prompt, 
                                     generation_config={"response_mime_type": "application/json"},
                                     request_options={"timeout": 15.0}
                                 )
+                                # 📊 🛠️ 計費追蹤：留緣牆審查（Gemini）
+                                try:
+                                    p_tk = response.usage_metadata.prompt_token_count
+                                    c_tk = response.usage_metadata.candidates_token_count
+                                    log_api_cost("Google Gemini", p_tk, c_tk)
+                                except:
+                                    pass
+
                                 res_json = json.loads(response.text)
                                 st.session_state.touyuan_feedback = res_json["reply"]
                                 if res_json["passed"]:
@@ -517,7 +575,6 @@ with tab1:
             st.session_state.chat_turns += 1
             n = st.session_state.chat_turns
             
-            # ⚙️ 記憶體防護網第一關：用戶輸入新對話後，立刻進行滾動式長度修剪（留 30 條 = 15輪對話）
             if len(st.session_state.messages) > 30:
                 st.session_state.messages = st.session_state.messages[-30:]
                 
@@ -555,7 +612,7 @@ with tab1:
                             mood_instruction = "【當前心情】：你跟客人極度投緣，話匣子大失控！『回覆總字數必須大於 200 字，且在 400 字以內』！"
                             token_limit = 2500
                         else:
-                            mood_instruction = "【當前心情】：你跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
+                            mood_instruction = "【當前心情】：幕後跟客人熟絡了，話匣子打開，『總字數控制在 150 個字以內』。"
                             token_limit = 1500
                     else:
                         mood_instruction = "【當前心情】：你開始覺得不耐煩，很想去睡覺. 請瘋狂敷衍，『絕對不能超過 15 個字』！"
@@ -571,12 +628,19 @@ with tab1:
                             gemini_history.append({"role": role, "parts": [msg["content"]]})
                         chat_session = model_chat.start_chat(history=gemini_history)
                         
-                        # ⚡ 優化一：為 Gemini 核心對話注入 15 秒硬超時限制，防止 Zeabur 連線乾等死鎖
                         response = chat_session.send_message(user_chat, request_options={"timeout": 15.0})
                         try:
                             chahu_reply = response.text
                         except:
                             chahu_reply = response.candidates[0].content.parts[0].text if response.candidates else random.choice(chahu_fallback_replies)
+                        
+                        # 📊 🛠️ 計費追蹤：茶室對話（Gemini）
+                        try:
+                            p_tk = response.usage_metadata.prompt_token_count
+                            c_tk = response.usage_metadata.candidates_token_count
+                            log_api_cost("Google Gemini", p_tk, c_tk)
+                        except:
+                            pass
                     
                     elif current_brain == "Groq (Llama-3)":
                         groq_url = "https://api.groq.com/openai/v1/chat/completions"
@@ -588,10 +652,18 @@ with tab1:
                         
                         payload = {"model": "llama-3.3-70b-versatile", "messages": groq_messages, "temperature": 0.7, "max_tokens": token_limit}
                         
-                        # ⚡ 優化二：將 Groq 的 API 請求超時調整為最穩定的 15 秒限制
                         groq_res = requests.post(groq_url, headers=groq_headers, json=payload, timeout=15)
                         if groq_res.status_code == 200:
-                            chahu_reply = groq_res.json()["choices"][0]["message"]["content"]
+                            res_body = groq_res.json()
+                            chahu_reply = res_body["choices"][0]["message"]["content"]
+                            
+                            # 📊 🛠️ 計費追蹤：茶室對話（Groq）
+                            try:
+                                p_tk = res_body["usage"]["prompt_tokens"]
+                                c_tk = res_body["usage"]["completion_tokens"]
+                                log_api_cost("Groq (Llama-3)", p_tk, c_tk)
+                            except:
+                                pass
                         else:
                             chahu_reply = random.choice(chahu_fallback_replies)
 
@@ -611,8 +683,6 @@ with tab1:
                     gc.collect()
                 
             st.session_state.messages.append({"role": "assistant", "content": chahu_reply})
-            
-            # ⚙️ 記憶體防護網第二關：在 AI 回覆附加進歷史紀錄後，再次觸發滾動式安全防護，極致控管記憶體不外洩
             if len(st.session_state.messages) > 30:
                 st.session_state.messages = st.session_state.messages[-30:]
                 
@@ -654,8 +724,6 @@ with tab2:
     st.markdown("---")
 
     if st.session_state.active_novel_title:
-        # 💡 技術總監報告：由於你的一、二樓書籍數據儲存在高效 SQLite 資料庫內，
-        # 底層已全面採用了高鐵級 `@st.cache_data` 的機制，因此切頁時資料庫完全免讀磁碟，直接於記憶體閃現！
         page_text, total_pages = fetch_novel_page_cached(st.session_state.active_novel_title, st.session_state.novel_page_num)
         
         st.markdown(f"#### 《{st.session_state.active_novel_title}》")
@@ -731,6 +799,91 @@ with tab3:
     if admin_password == "2011Pintecho$":
         st.success("🔓 店長身分驗證成功！")
         
+        # ==========================================
+        # 📈 🛠️ 核心豪裝工程：［柴米油鹽水電煤］維生儀表板數據艙
+        # ==========================================
+        st.markdown("### 📊 桌記 Cafe 核心維生儀表板")
+        st.caption("⚡ 實時追蹤雲端算力與大腦代幣消耗，精準掌控高熵邊界")
+        
+        # 🔍 A. 用作業系統探針即時抓取記憶體
+        process = psutil.Process(os.getpid())
+        mem_bytes = process.memory_info().rss
+        mem_mb = mem_bytes / (1024 * 1024)
+        
+        # 🔍 B. 撈取大腦代幣流水對帳單
+        ai_billing = get_accumulated_api_billing()
+        
+        # 🔍 C. 計算 SQLite 資料庫物理體積
+        try:
+            db_size_bytes = os.path.getsize(DB_PATH)
+            db_size_mb = db_size_bytes / (1024 * 1024)
+        except:
+            db_size_mb = 0.0
+            
+        # 🎨 第一排：Zeabur 實時核心物理硬體指標
+        st.markdown("#### 🔋 Zeabur 主機物理防線")
+        m_col1, m_col2, m_col3 = st.columns(3)
+        with m_col1:
+            st.markdown(f"""
+                <div class="metric-card-box">
+                    <div class="metric-card-title">💾 記憶體使用量 (RAM)</div>
+                    <div class="metric-card-value">{mem_mb:.2f} MB</div>
+                    <div class="metric-card-sub">豪宅上限: 2048.00 MB (極度安全)</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with m_col2:
+            st.markdown(f"""
+                <div class="metric-card-box">
+                    <div class="metric-card-title">🗄️ 永久硬碟體積 (SQLite)</div>
+                    <div class="metric-card-value">{db_size_mb:.3f} MB</div>
+                    <div class="metric-card-sub">永久儲存路徑: /data/</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with m_col3:
+            st.markdown(f"""
+                <div class="metric-card-box">
+                    <div class="metric-card-title">⚙️ 處理器核心 (CPU)</div>
+                    <div class="metric-card-value">2 Cores</div>
+                    <div class="metric-card-sub">高鐵級捷徑索引已全面部署</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # 🎨 第二排：Gemini 與 Groq 雙大腦代幣總對帳單
+        st.markdown("#### 🧠 聯邦 AI 大腦代幣流水帳")
+        a_col1, a_col2 = st.columns(2)
+        with a_col1:
+            g_bill = ai_billing["Google Gemini"]
+            st.markdown(f"""
+                <div class="metric-card-box" style="border-left: 4px solid #4285F4;">
+                    <div class="metric-card-title">🔵 Google Gemini (2.5 Flash)</div>
+                    <div class="metric-card-value">${g_bill['cost']:.4f} USD</div>
+                    <div class="metric-card-sub">總代幣: 📥 {g_bill['p']} / 📤 {g_bill['c']} Tokens</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with a_col2:
+            gr_bill = ai_billing["Groq (Llama-3)"]
+            st.markdown(f"""
+                <div class="metric-card-box" style="border-left: 4px solid #F55036;">
+                    <div class="metric-card-title">🟠 Groq (Llama-3.3 70B)</div>
+                    <div class="metric-card-value">${gr_bill['cost']:.4f} USD</div>
+                    <div class="metric-card-sub">總代幣: 📥 {gr_bill['p']} / 📤 {gr_bill['c']} Tokens</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+        # 🎨 第三排：實時直達官方 Billing 傳送門 (風控核心)
+        st.markdown("<br>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        with c1:
+            st.link_button("🌐 一鍵跳轉：Zeabur 官方實時帳單後台", "https://dash.zeabur.com", use_container_width=True, help="直連官方查看最權威的主機月租水電表")
+        with c2:
+            if st.button("🔄 刷新儀表板數據", use_container_width=True):
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # （以下維持店長原本完美的後台管理功能...）
         chosen_brain = st.radio(
             "請為茶壺選擇思維核心大腦：", ["Google Gemini", "Groq (Llama-3)"],
             index=0 if st.session_state.chahu_selected_brain == "Google Gemini" else 1, horizontal=True
@@ -747,7 +900,7 @@ with tab3:
             st.rerun()
             
         st.markdown("---")
-        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROMPT_FROM_DB, height=150)
+        updated_chahu_prompt = st.text_area("修改貓咪大腦：", value=CHAHU_PROPrompt_FROM_DB, height=150)
         if st.button("🧬 注入全新靈魂印記"):
             conn = sqlite3.connect(DB_PATH, check_same_thread=False)
             c = conn.cursor()
