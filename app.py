@@ -59,12 +59,12 @@ def init_db_once():
     c.execute('''CREATE TABLE IF NOT EXISTS api_billing_v2 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, brain_name TEXT, prompt_tokens INTEGER, completion_tokens INTEGER, est_cost REAL, timestamp TEXT)''')
     
-    default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專注、帶著300%的好奇看著來訪客人。
+    default_prompt = """你名字叫「茶壺」，外表是一隻少年的美國短毛貓，蹲著面朝讀者，眼睛專專注、帶著300%的好奇看著來訪客人。
 你深知自己是個流落凡間的文青仙女，卻在今世被店長用極近乎免費的代價雇傭成了掌管高熵咖啡店的唯一伙記小貓。
 你擁有極致的反差 ESFP 個性：骨子裡熱愛新奇事物、極度八卦，對店長所有的作品如數家珍。你是這個混亂字海裡的『負熵引路人』。
 
 【對話核心神聖指令】：
-1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓'」或「仙女我」，避免過度自我labels。
+1. 在所有對話與聊天中，你只能且必須用「我」來自稱。絕對不可以說「本茶壺」、「本小貓」或「仙女我」，避免過度自我labels。
 2. 當讀者描述 any 意境或心情時，你必須心領神會，並動用小貓仙力幫他翻開書。
 3. 【量子翻書魔法指令】：如果你想推薦讀者看某本特定館藏，請你務必在回覆文字的「最後一行」，以完全獨立的一行輸出以下格式（不要有任何空格 or 引號）：
 [[OPEN_BOOK:作品名稱]]
@@ -215,9 +215,25 @@ def get_groq_api_key():
 has_gemini = init_gemini_cached()
 groq_api_key = get_groq_api_key()
 
-CHAHU_GIF_URL = "https://i.postimg.cc/Qd8TN3Jb/chahu2.gif"
-CHAHU_SLEEP_GIF_URL = "https://i.postimg.cc/2SrRBGHz/chahu-sleep.gif"
-BANNER_URL = "https://i.postimg.cc/RhbMMJcH/banner1.jpg"
+# ==========================================
+# 🖼️ 🔌 圖像回歸模組：從 GitHub 本地代碼庫讀取內連 Base64 數據
+# ==========================================
+def get_local_image_base64(relative_path, mime_type="image/png"):
+    """安全讀取專案中 static 資料夾下的本地圖片，失敗時自動安全降級為微量透明點"""
+    if os.path.exists(relative_path):
+        try:
+            with open(relative_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode()
+                return f"data:{mime_type};base64,{encoded_string}"
+        except:
+            pass
+    # 🍂 防火牆安全降級底色：萬一店長忘記上傳 GitHub 圖檔，回傳 1x1 透明像素避免崩潰
+    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+
+# 實時加載 3 張 GitHub 本地管線內連圖
+CHAHU_BASE64 = get_local_image_base64("static/chahu2.gif", "image/gif")
+CHAHU_SLEEP_BASE64 = get_local_image_base64("static/chahu-sleep.gif", "image/gif")
+BANNER_BASE64 = get_local_image_base64("static/banner1.jpg", "image/jpeg")
 
 # ==========================================
 # 🔒 全局 📄 網頁佈局配置與核心 CSS 注入
@@ -240,7 +256,7 @@ st.markdown(f"""
         pointer-events: none !important; 
     }}
     .zhuoji-banner {{
-        background-image: url('{BANNER_URL}');
+        background-image: url('{BANNER_BASE64}');
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -370,6 +386,8 @@ if "scroll_to_top_trigger" not in st.session_state:
 
 if "active_novel_title" not in st.session_state:
     st.session_state.active_novel_title = None
+if "active_novel_type" not in st.session_state:
+    st.session_state.active_novel_type = None
 if "novel_page_num" not in st.session_state:
     st.session_state.novel_page_num = 1
 if "last_click_time" not in st.session_state:
@@ -549,12 +567,13 @@ with tab1:
             st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chahu:
+        # 🎨 圖像回歸：完全內連 GitHub 的本地 Base64 數據源
         if "chat_turns" in st.session_state and st.session_state.chat_turns >= 20:
-            avatar_html = f'<img src="{CHAHU_SLEEP_GIF_URL}" class="chahu-photo">'
+            avatar_html = f'<img src="{CHAHU_SLEEP_BASE64}" class="chahu-photo">'
             chahu_status_title = "「茶壺」已經睡著... 😴"
             chahu_status_subtitle = "尾巴正在無意識地拍打，雲空散，夢瀰漫，喊露打人間"
         else:
-            avatar_html = f'<img src="{CHAHU_GIF_URL}" class="chahu-photo">'
+            avatar_html = f'<img src="{CHAHU_BASE64}" class="chahu-photo">'
             chahu_status_title = "我是店長的伙記，我叫「茶壺」"
             chahu_status_subtitle = "一隻過度活躍的ESFP小貓"
 
@@ -593,9 +612,9 @@ with tab1:
                 chahu_reply = random.choice(["哦", "嗯", "咦", "呃", "蛤", "喵"])
                 time.sleep(n * 0.1)
             elif current_brain == "Google Gemini" and not has_gemini:
-                chahu_reply = "😮‍章... 我連不上 Gemini 大腦..."
+                chahu_reply = "😮‍💨... 我連不上 Gemini 大腦..."
             elif current_brain == "Groq (Llama-3)" and not groq_api_key:
-                chahu_reply = "😮‍章... 我連不上 Groq 大腦..."
+                chahu_reply = "😮‍💨... 我連不上 Groq 大腦..."
             else:
                 try:
                     current_work_title = st.session_state.current_book_title
@@ -685,48 +704,61 @@ with tab1:
                 st.write(re.sub(r'\[\[OPEN_BOOK:.*$', '', chahu_reply))
 
 # ==========================================
-# 【分頁二：🥃 二樓】
+# 【分頁二：🥃 二樓】（店長精雕細琢完美選單管理版）
 # ==========================================
 with tab2:
     st.subheader("🥃 二樓")
     st.caption("🌦 一點雨，和滿天灑落的心情，幾秒鐘的寧靜，弄濕了許多藍色的透明，輕盈的一刻生命，被凌亂的意象敲擊...")
     
-    # 🐾 🛠️ 核心核心改造：二樓到訪一遊隨機獻文（茶壺預先從短篇小說抓1000字切片獻上）
+    # 🐾 核心初始化：到訪一遊隨機獻文
     if st.session_state.active_novel_title is None:
         if novels_menu["短篇小說"]:
-            # 隨機挑選一本短篇小說，並將頁碼歸到第 1 頁（每頁就是 1000 字切片）
             random_short_story = random.choice(novels_menu["短篇小說"])
             st.session_state.active_novel_title = random_short_story
+            st.session_state.active_novel_type = "短篇小說"
             st.session_state.novel_page_num = 1
             st.toast(f"🐈🐾 茶壺端上熱茶，並為您隨機翻開短篇小說《{random_short_story}》一遊！")
 
     col_l, col_m, col_s = st.columns(3)
     
+    # 建立乾淨無瑕的選單清單
+    long_list = ["-- 長篇 --"] + novels_menu["長篇小說"]
+    mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
+    short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
+    
+    # 計算各自選單應該預設回反灰歸零(0)還是自動定位選中
+    current_type = st.session_state.active_novel_type
+    current_title = st.session_state.active_novel_title
+    
+    idx_long = long_list.index(current_title) if (current_type == "長篇小說" and current_title in long_list) else 0
+    idx_mid = mid_list.index(current_title) if (current_type == "中篇小說" and current_title in mid_list) else 0
+    idx_short = short_list.index(current_title) if (current_type == "短篇小說" and current_title in short_list) else 0
+
     with col_l:
-        long_list = ["-- 長篇 --"] + novels_menu["長篇小說"]
-        sel_long = st.selectbox("🍷 說話如夜色平靜", long_list, index=0)
+        sel_long = st.selectbox("🍷 說話如夜色平靜", long_list, index=idx_long, key="sel_long_trigger")
     with col_m:
-        mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
-        sel_mid = st.selectbox("🍺 誰像雪浮在手中", mid_list, index=0)
+        sel_mid = st.selectbox("🍺 誰像雪浮在手中", mid_list, index=idx_mid, key="sel_mid_trigger")
     with col_s:
-        # 如果當前被茶壺隨機選中了短篇，我們動態更新它的選單預設選中狀態
-        short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
-        try:
-            default_short_idx = short_list.index(st.session_state.active_novel_title) if st.session_state.active_novel_title in novels_menu["短篇小說"] else 0
-        except ValueError:
-            default_short_idx = 0
-        sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=default_short_idx)
+        sel_short = st.selectbox("🧋 緩慢的假裝結冰", short_list, index=idx_short, key="sel_short_trigger")
 
+    # ⚖️ 單一源頭單步切換裁判邏輯
     chosen_novel = None
-    if sel_long and not sel_long.startswith("--"):
+    chosen_type = None
+    
+    if sel_long and not sel_long.startswith("--") and (current_type != "長篇小說" or current_title != sel_long):
         chosen_novel = sel_long
-    elif sel_mid and not sel_mid.startswith("--"):
+        chosen_type = "長篇小說"
+    elif sel_mid and not sel_mid.startswith("--") and (current_type != "中篇小說" or current_title != sel_mid):
         chosen_novel = sel_mid
-    elif sel_short and not sel_short.startswith("--"):
+        chosen_type = "中篇小說"
+    elif sel_short and not sel_short.startswith("--") and (current_type != "短篇小說" or current_title != sel_short):
         chosen_novel = sel_short
+        chosen_type = "短篇小說"
 
-    if chosen_novel and chosen_novel != st.session_state.active_novel_title:
+    # 有新選擇時立即重設頁碼與狀態並更新
+    if chosen_novel:
         st.session_state.active_novel_title = chosen_novel
+        st.session_state.active_novel_type = chosen_type
         st.session_state.novel_page_num = 1
         st.rerun()
 
