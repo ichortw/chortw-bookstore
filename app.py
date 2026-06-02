@@ -695,7 +695,7 @@ with tab2:
     if st.session_state.active_novel_title is None:
         if novels_menu["短篇小說"]:
             # 隨機挑選一本短篇小說，並將頁碼歸到第 1 頁（每頁就是 1000 字切片）
-            random_short_story = random.choice(novels_menu["短篇小說"])
+            random_short_story = random.choice(novels_menu["散文雜記"])
             st.session_state.active_novel_title = random_short_story
             st.session_state.novel_page_num = 1
             st.toast(f"🐈🐾 茶壺端上熱茶，並為您隨機翻開短篇小說《{random_short_story}》一遊！")
@@ -706,11 +706,11 @@ with tab2:
         long_list = ["-- 長篇 --"] + novels_menu["長篇小說"]
         sel_long = st.selectbox("🍷 說話如夜色平靜", long_list, index=0)
     with col_m:
-        mid_list = ["-- 中篇 --"] + novels_menu["中篇小說"]
+        mid_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
         sel_mid = st.selectbox("🍺 誰像雪浮在手中", mid_list, index=0)
     with col_s:
         # 如果當前被茶壺隨機選中了短篇，我們動態更新它的選單預設選中狀態
-        short_list = ["-- 短篇 --"] + novels_menu["短篇小說"]
+        short_list = ["-- 散文 --"] + novels_menu["散文雜記"]
         try:
             default_short_idx = short_list.index(st.session_state.active_novel_title) if st.session_state.active_novel_title in novels_menu["短篇小說"] else 0
         except ValueError:
